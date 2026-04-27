@@ -1,0 +1,1 @@
+"""NextGraph backend package placeholder."""
