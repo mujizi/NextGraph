@@ -23,6 +23,9 @@
   --warn: #f59e0b;
   --danger: #ef4444;
   --radius: 10px;
+  --workbench-width: min(1880px, 100%);
+  --workbench-height: min(820px, calc(100vh - 160px));
+  --workbench-min-height: 640px;
 }
 
 * {
@@ -479,20 +482,20 @@ button {
 }
 
 .content-panel {
-  width: min(1302px, 100%);
-  height: min(760px, calc(100vh - 192px));
-  min-height: 560px;
+  width: var(--workbench-width);
+  height: var(--workbench-height);
+  min-height: var(--workbench-min-height);
   margin: 0 auto;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 14px;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .chat-shell {
-  width: min(1880px, 100%);
-  height: min(820px, calc(100vh - 160px));
-  min-height: 640px;
+  width: var(--workbench-width);
+  height: var(--workbench-height);
+  min-height: var(--workbench-min-height);
   margin: 0 auto;
   background: #fff;
   border: 1px solid var(--line);
@@ -1601,15 +1604,23 @@ button {
 }
 
 .search-page {
-  display: block;
+  display: grid;
+  place-items: start center;
   min-height: calc(100vh - 128px);
-  padding: 32px 32px 72px;
-  background: var(--bg);
+  padding: 32px;
+  background: var(--work);
 }
 
 .search-workspace {
-  width: min(1120px, calc(100vw - 48px));
+  width: var(--workbench-width);
+  height: var(--workbench-height);
+  min-height: var(--workbench-min-height);
   margin: 0 auto;
+  padding: 24px 28px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
 }
 
 .search-title {
@@ -1898,6 +1909,12 @@ button {
 }
 
 @media (max-width: 980px) {
+  :root {
+    --workbench-width: 100%;
+    --workbench-height: auto;
+    --workbench-min-height: 0;
+  }
+
   .topbar {
     grid-template-columns: 1fr;
     gap: 10px;
