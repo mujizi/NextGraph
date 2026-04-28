@@ -1,1 +1,8 @@
-# Backend dependencies will be added when API implementation starts.
+fastapi>=0.115.0
+httpx[socks]>=0.28.0
+langgraph>=0.2.76
+langchain-openai>=1.0.0
+pymilvus==2.4.10
+pymupdf>=1.27.0
+python-multipart>=0.0.20
+uvicorn[standard]>=0.33.0

@@ -1,5 +1,10 @@
 frontend/node_modules/
 frontend/dist/
 backend/.venv/
+backend/.env
+.venv-mineru/
 __pycache__/
 .DS_Store
+parse/mineru/
+parse/mineru-backup-*/
+tmp/
