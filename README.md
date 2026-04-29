@@ -8,6 +8,8 @@
 - `backend/`: Python 后端占位目录，后续接入接口。
 - `scripts/start_frontend.sh`: 前端启动脚本。
 - `scripts/restart_frontend.sh`: 前端重启脚本。
+- `scripts/restart_backend.sh`: 后端重启脚本。
+- `scripts/restart_all.sh`: 前后端一键重启脚本。
 
 ## 前端命令
 
@@ -27,6 +29,24 @@
 
 ```bash
 PORT=3000 ./scripts/restart_frontend.sh
+```
+
+重启后端：
+
+```bash
+./scripts/restart_backend.sh
+```
+
+一键重启前后端：
+
+```bash
+./scripts/restart_all.sh
+```
+
+指定端口一键重启：
+
+```bash
+FRONTEND_PORT=3000 BACKEND_PORT=8001 ./scripts/restart_all.sh
 ```
 
 ## 后端分工

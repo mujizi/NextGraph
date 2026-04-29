@@ -7,6 +7,7 @@ import logging
 import os
 import re
 import shutil
+import time
 import uuid
 import zipfile
 from datetime import datetime, timezone
@@ -32,9 +33,11 @@ PARSE_DIR = TMP_DIR / "parse"
 GRAPH_DIR = TMP_DIR / "graph"
 ALLOWED_EXTENSIONS = {".pdf", ".txt", ".md", ".xlsx", ".docx"}
 MINERU_API_URL = os.environ.get("MINERU_API_URL", "http://10.1.80.16:8004")
+# MINERU_API_URL = os.environ.get("MINERU_API_URL", "http://10.1.15.222:8004")
 MINERU_BACKEND = os.environ.get("MINERU_BACKEND", "pipeline")
 MINERU_API_TIMEOUT = float(os.environ.get("MINERU_API_TIMEOUT", "3600"))
 MAX_CONCURRENT_PARSE_FILES = int(os.environ.get("MAX_CONCURRENT_PARSE_FILES", "4"))
+MAX_CONCURRENT_GRAPH_FILES = int(os.environ.get("MAX_CONCURRENT_GRAPH_FILES", "2"))
 AZURE_OPENAI_ENDPOINT = os.environ.get("AZURE_OPENAI_ENDPOINT", "")
 AZURE_OPENAI_API_KEY = os.environ.get("AZURE_OPENAI_API_KEY", "")
 AZURE_OPENAI_API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
@@ -54,6 +57,7 @@ OPENROUTER_BASE_URL = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.
 OPENROUTER_CHAT_MODEL = os.environ.get("OPENROUTER_CHAT_MODEL", "openai/gpt-5.4-mini")
 DEFAULT_GRAPH_LLM_CONCURRENCY = int(os.environ.get("GRAPH_LLM_CONCURRENCY", "50"))
 DEFAULT_GRAPH_EMBEDDING_CONCURRENCY = int(os.environ.get("GRAPH_EMBEDDING_CONCURRENCY", "50"))
+GRAPH_EMBEDDING_BATCH_SIZE = int(os.environ.get("GRAPH_EMBEDDING_BATCH_SIZE", "64"))
 DEFAULT_GRAPH_MAX_CHUNK_TOKENS = int(os.environ.get("GRAPH_MAX_CHUNK_TOKENS", "5000"))
 GRAPH_LLM_MAX_RETRIES = int(os.environ.get("GRAPH_LLM_MAX_RETRIES", "3"))
 GRAPH_LLM_RETRY_BACKOFF = float(os.environ.get("GRAPH_LLM_RETRY_BACKOFF", "1.5"))
@@ -61,6 +65,7 @@ MILVUS_URI = os.environ.get("MILVUS_URI", "")
 MILVUS_TOKEN = os.environ.get("MILVUS_TOKEN", "")
 MILVUS_DB_NAME = os.environ.get("MILVUS_DB_NAME", "benqi")
 MILVUS_QUESTION_COLLECTION = os.environ.get("MILVUS_QUESTION_COLLECTION", "potential_questions")
+MILVUS_UPSERT_BATCH_SIZE = int(os.environ.get("MILVUS_UPSERT_BATCH_SIZE", "64"))
 
 app = FastAPI(title="NextGraph API")
 logger = logging.getLogger("nextgraph.graph_extract")
@@ -120,6 +125,16 @@ class GraphExtractFilesRequest(BaseModel):
     knowledgeName: str
     files: List[ParseFileRequest]
     options: GraphExtractOptions = Field(default_factory=GraphExtractOptions)
+
+
+class ParseStatusRequest(BaseModel):
+    knowledgeName: str
+    files: List[ParseFileRequest]
+
+
+class GraphStatusRequest(BaseModel):
+    knowledgeName: str
+    files: List[ParseFileRequest]
 
 
 class ChatMessage(BaseModel):
@@ -555,6 +570,28 @@ def append_graph_log(output_dir: Path, event: Dict[str, Any]) -> None:
     log_event = {"time": now_iso(), **event}
     with (output_dir / "events.jsonl").open("a", encoding="utf-8") as log_file:
         log_file.write(json.dumps(log_event, ensure_ascii=False) + "\n")
+
+
+def graph_timer_start(output_dir: Path, event: str, **payload: Any) -> float:
+    started_at = time.perf_counter()
+    append_graph_log(output_dir, {"event": f"{event}_started", **payload})
+    return started_at
+
+
+def append_graph_timing(
+    output_dir: Path,
+    event: str,
+    started_at: float,
+    **payload: Any,
+) -> None:
+    append_graph_log(
+        output_dir,
+        {
+            "event": f"{event}_finished",
+            "elapsedSeconds": round(time.perf_counter() - started_at, 3),
+            **payload,
+        },
+    )
 
 
 def assign_catalog_ids(items: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
@@ -1217,15 +1254,28 @@ async def embed_questions(questions: List[Dict[str, Any]], concurrency: int) -> 
     if not questions:
         return []
 
+    batch_size = max(1, GRAPH_EMBEDDING_BATCH_SIZE)
+    batches = [
+        (start_index, questions[start_index : start_index + batch_size])
+        for start_index in range(0, len(questions), batch_size)
+    ]
     semaphore = asyncio.Semaphore(max(1, concurrency))
     rows: List[Optional[Dict[str, Any]]] = [None] * len(questions)
 
-    async def embed_one(index: int, question: Dict[str, Any]) -> None:
+    async def embed_batch(start_index: int, batch_questions: List[Dict[str, Any]]) -> None:
         async with semaphore:
-            embedding = (await call_azure_embedding([question["question"]]))[0]
-            rows[index] = {**question, "embedding": embedding}
+            embeddings = await call_azure_embedding(
+                [question["question"] for question in batch_questions]
+            )
+            if len(embeddings) != len(batch_questions):
+                raise RuntimeError(
+                    "Azure embedding returned unexpected vector count: "
+                    f"expected {len(batch_questions)}, got {len(embeddings)}"
+                )
+            for offset, (question, embedding) in enumerate(zip(batch_questions, embeddings)):
+                rows[start_index + offset] = {**question, "embedding": embedding}
 
-    await asyncio.gather(*(embed_one(index, question) for index, question in enumerate(questions)))
+    await asyncio.gather(*(embed_batch(start_index, batch) for start_index, batch in batches))
     return [row for row in rows if row is not None]
 
 
@@ -1269,8 +1319,21 @@ def write_questions_to_milvus(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
                 schema=schema,
                 index_params=index_params,
             )
-        client.upsert(collection_name=MILVUS_QUESTION_COLLECTION, data=rows)
-        return {"enabled": True, "inserted": len(rows), "collection": MILVUS_QUESTION_COLLECTION}
+        batch_size = max(1, MILVUS_UPSERT_BATCH_SIZE)
+        inserted = 0
+        batch_count = 0
+        for start_index in range(0, len(rows), batch_size):
+            batch_rows = rows[start_index : start_index + batch_size]
+            client.upsert(collection_name=MILVUS_QUESTION_COLLECTION, data=batch_rows)
+            inserted += len(batch_rows)
+            batch_count += 1
+        return {
+            "enabled": True,
+            "inserted": inserted,
+            "batchSize": batch_size,
+            "batchCount": batch_count,
+            "collection": MILVUS_QUESTION_COLLECTION,
+        }
     except Exception as exc:
         return {"enabled": False, "inserted": 0, "reason": f"Milvus write failed: {exc}"}
 
@@ -1665,7 +1728,7 @@ def material_image_url(knowledge_name: str, file_id: str, paragraph_id: str) -> 
     )
 
 
-def build_search_materials(search_result: Dict[str, Any], limit: int = 12) -> List[Dict[str, Any]]:
+def build_search_materials(search_result: Dict[str, Any]) -> List[Dict[str, Any]]:
     knowledge_name = str(search_result.get("knowledgeName") or "")
     local_materials: List[Dict[str, Any]] = []
     global_materials: List[Dict[str, Any]] = []
@@ -1707,29 +1770,19 @@ def build_search_materials(search_result: Dict[str, Any], limit: int = 12) -> Li
     for book in search_result.get("global", {}).get("books", []):
         global_materials.extend(collect_paragraphs(book, book.get("paragraphs", []), "global"))
 
-    local_quota = limit // 2
-    global_quota = limit - local_quota
-    materials = local_materials[:local_quota] + global_materials[:global_quota]
-    if len(materials) < limit:
-        used = {item["id"] for item in materials}
-        overflow = [item for item in [*local_materials[local_quota:], *global_materials[global_quota:]] if item["id"] not in used]
-        materials.extend(overflow[: limit - len(materials)])
-
-    return materials
+    return [*local_materials, *global_materials]
 
 
-def build_materials_from_search_results(search_results: List[Dict[str, Any]], limit: int = 12) -> List[Dict[str, Any]]:
+def build_materials_from_search_results(search_results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     materials: List[Dict[str, Any]] = []
     seen: set[str] = set()
     for search_result in search_results:
-        for material in build_search_materials(search_result, limit=limit):
+        for material in build_search_materials(search_result):
             material_id = str(material.get("id") or "")
             if not material_id or material_id in seen:
                 continue
             seen.add(material_id)
             materials.append(material)
-            if len(materials) >= limit:
-                return materials
     return materials
 
 
@@ -1761,6 +1814,7 @@ def build_catalog_graph_from_search_results(search_results: List[Dict[str, Any]]
                     {
                         "catalogId": catalog.get("catalogId"),
                         "title": catalog.get("title") or "未命名目录",
+                        "summary": catalog.get("summary") or "",
                         "path": catalog.get("path", []),
                         "depth": catalog.get("depth", 1),
                         "selected": catalog.get("catalogId") in selected_set,
@@ -1825,7 +1879,7 @@ def format_film_knowledge_context(search_result: Dict[str, Any]) -> str:
             )
             if question.get("answerHint"):
                 lines.append(f"   答案提示：{truncate_text(question.get('answerHint', ''), 260)}")
-            for paragraph in item.get("paragraphs", [])[:3]:
+            for paragraph in item.get("paragraphs", [])[:12]:
                 lines.append(
                     f"   原文片段（{format_source(file_name, paragraph)}）："
                     f"{truncate_text(paragraph.get('text', ''), 280)}"
@@ -1845,7 +1899,7 @@ def format_film_knowledge_context(search_result: Dict[str, Any]) -> str:
                     lines.append(f"   相关目录：{path}")
                     if catalog.get("summary"):
                         lines.append(f"   目录摘要：{truncate_text(catalog.get('summary', ''), 260)}")
-            for paragraph in book.get("paragraphs", [])[:5]:
+            for paragraph in book.get("paragraphs", [])[:20]:
                 lines.append(
                     f"   目录对应原文（{format_source(file_name, paragraph)}）："
                     f"{truncate_text(paragraph.get('text', ''), 300)}"
@@ -1873,7 +1927,18 @@ async def run_graph_extract_file(file_item: Dict[str, Any], batch: Dict[str, Any
         summarize_graph_batch(batch)
 
     file_item["startedAt"] = now_iso()
+    if output_dir.exists() and options.get("forceRebuild"):
+        shutil.rmtree(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    total_started_at = graph_timer_start(
+        output_dir,
+        "graph_extract",
+        storedPath=stored_path,
+        fileName=file_item.get("name"),
+        options=options,
+    )
     try:
+        validation_started_at = graph_timer_start(output_dir, "validation", storedPath=stored_path)
         set_state("validating", 2, "正在检查解析结果")
         if not source_path.exists() or not source_path.is_file():
             raise FileNotFoundError(f"File not found: {stored_path}")
@@ -1881,11 +1946,20 @@ async def run_graph_extract_file(file_item: Dict[str, Any], batch: Dict[str, Any
         content_list_path = find_content_list_path(batch["knowledgeName"], stored_path)
         file_item["contentListPath"] = content_list_path.relative_to(ROOT_DIR).as_posix()
         file_item["outputPath"] = output_dir.relative_to(ROOT_DIR).as_posix()
+        append_graph_timing(
+            output_dir,
+            "validation",
+            validation_started_at,
+            contentListPath=file_item["contentListPath"],
+            outputPath=file_item["outputPath"],
+        )
 
-        if output_dir.exists() and options.get("forceRebuild"):
-            shutil.rmtree(output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
-
+        chunking_started_at = graph_timer_start(
+            output_dir,
+            "chunking",
+            contentListPath=file_item["contentListPath"],
+            maxChunkTokens=max(500, int(options["maxChunkTokens"])),
+        )
         set_state("chunking", 8, "正在清洗段落并合并 chunk")
         paragraphs = load_paragraphs(content_list_path)
         valid_paragraph_ids = {paragraph["paragraphId"] for paragraph in paragraphs}
@@ -1893,7 +1967,21 @@ async def run_graph_extract_file(file_item: Dict[str, Any], batch: Dict[str, Any
         file_item["chunksTotal"] = len(chunks)
         file_item["chunksDone"] = 0
         write_jsonl(output_dir / "paragraphs.jsonl", paragraphs)
+        append_graph_timing(
+            output_dir,
+            "chunking",
+            chunking_started_at,
+            paragraphCount=len(paragraphs),
+            chunkCount=len(chunks),
+        )
 
+        llm_started_at = graph_timer_start(
+            output_dir,
+            "llm_extract",
+            chunkCount=len(chunks),
+            llmConcurrency=max(1, int(options["llmConcurrency"])),
+            llmMaxRetries=int(options.get("llmMaxRetries") or GRAPH_LLM_MAX_RETRIES),
+        )
         set_state("llm_extracting", 15, f"正在抽取目录和潜在问题 0/{len(chunks)}")
         llm_semaphore = asyncio.Semaphore(max(1, int(options["llmConcurrency"])))
         chunk_results: List[Optional[Dict[str, Any]]] = [None] * len(chunks)
@@ -1925,14 +2013,36 @@ async def run_graph_extract_file(file_item: Dict[str, Any], batch: Dict[str, Any
         await asyncio.gather(*(run_chunk(index, chunk) for index, chunk in enumerate(chunks)))
         completed_chunk_results = [item for item in chunk_results if item is not None]
         write_jsonl(output_dir / "chunk_results.jsonl", completed_chunk_results)
+        append_graph_timing(
+            output_dir,
+            "llm_extract",
+            llm_started_at,
+            chunkCount=len(chunks),
+            completedChunkCount=len(completed_chunk_results),
+            skippedChunkCount=skipped_chunks,
+        )
 
+        catalog_started_at = graph_timer_start(
+            output_dir,
+            "catalog_merge",
+            mode=options.get("catalogMergeMode"),
+            completedChunkCount=len(completed_chunk_results),
+        )
         set_state("catalog_merging", 75, "正在合并全书目录")
         if options.get("catalogMergeMode") == "llm":
             catalog_items = await merge_catalog_with_llm(completed_chunk_results, valid_paragraph_ids, output_dir)
         else:
             catalog_items = merge_catalog_with_rules(completed_chunk_results, valid_paragraph_ids, output_dir)
         paragraph_to_catalog_ids = assign_catalog_ids(catalog_items)
+        append_graph_timing(
+            output_dir,
+            "catalog_merge",
+            catalog_started_at,
+            catalogCount=len(flatten_catalog(catalog_items)),
+            mappedParagraphCount=len(paragraph_to_catalog_ids),
+        )
 
+        question_started_at = graph_timer_start(output_dir, "question_assembly")
         raw_questions: List[Dict[str, Any]] = []
         seen_questions: set[str] = set()
         for result in completed_chunk_results:
@@ -1953,9 +2063,30 @@ async def run_graph_extract_file(file_item: Dict[str, Any], batch: Dict[str, Any
                         "catalogIds": catalog_ids,
                     }
                 )
+        append_graph_timing(
+            output_dir,
+            "question_assembly",
+            question_started_at,
+            questionCount=len(raw_questions),
+            duplicateQuestionCount=sum(
+                len(result.get("questions", [])) for result in completed_chunk_results
+            )
+            - len(raw_questions),
+        )
 
         set_state("embedding", 88, "正在向量化潜在问题")
         embedding_meta: Dict[str, Any] = {"enabled": True, "error": None}
+        embedding_started_at = graph_timer_start(
+            output_dir,
+            "embedding",
+            questionCount=len(raw_questions),
+            batchSize=max(1, GRAPH_EMBEDDING_BATCH_SIZE),
+            batchCount=(len(raw_questions) + max(1, GRAPH_EMBEDDING_BATCH_SIZE) - 1)
+            // max(1, GRAPH_EMBEDDING_BATCH_SIZE),
+            embeddingConcurrency=int(options["embeddingConcurrency"]),
+            deployment=AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
+            timeoutSeconds=AZURE_OPENAI_TIMEOUT,
+        )
         try:
             embedded_questions = await embed_questions(raw_questions, int(options["embeddingConcurrency"]))
         except Exception as exc:
@@ -1969,8 +2100,35 @@ async def run_graph_extract_file(file_item: Dict[str, Any], batch: Dict[str, Any
                     "questionCount": len(raw_questions),
                 },
             )
+            append_graph_timing(
+                output_dir,
+                "embedding",
+                embedding_started_at,
+                status="failed",
+                questionCount=len(raw_questions),
+                embeddedQuestionCount=0,
+                batchSize=max(1, GRAPH_EMBEDDING_BATCH_SIZE),
+                error=embedding_meta["error"],
+            )
+        else:
+            append_graph_timing(
+                output_dir,
+                "embedding",
+                embedding_started_at,
+                status="done",
+                questionCount=len(raw_questions),
+                embeddedQuestionCount=len(embedded_questions),
+                batchSize=max(1, GRAPH_EMBEDDING_BATCH_SIZE),
+                batchCount=(len(raw_questions) + max(1, GRAPH_EMBEDDING_BATCH_SIZE) - 1)
+                // max(1, GRAPH_EMBEDDING_BATCH_SIZE),
+            )
 
         file_id = output_dir.name
+        vector_prepare_started_at = graph_timer_start(
+            output_dir,
+            "vector_row_prepare",
+            embeddedQuestionCount=len(embedded_questions),
+        )
         vector_rows = [
             {
                 "id": f"{file_id}_{question['questionId']}",
@@ -1987,8 +2145,38 @@ async def run_graph_extract_file(file_item: Dict[str, Any], batch: Dict[str, Any
             }
             for question in embedded_questions
         ]
+        append_graph_timing(
+            output_dir,
+            "vector_row_prepare",
+            vector_prepare_started_at,
+            vectorRowCount=len(vector_rows),
+            hasEmbedding=bool(vector_rows),
+        )
+        milvus_started_at = graph_timer_start(
+            output_dir,
+            "milvus_write",
+            vectorRowCount=len(vector_rows),
+            batchSize=max(1, MILVUS_UPSERT_BATCH_SIZE),
+            batchCount=(len(vector_rows) + max(1, MILVUS_UPSERT_BATCH_SIZE) - 1)
+            // max(1, MILVUS_UPSERT_BATCH_SIZE),
+            uri=MILVUS_URI,
+            database=MILVUS_DB_NAME,
+            collection=MILVUS_QUESTION_COLLECTION,
+        )
         milvus_meta = write_questions_to_milvus(vector_rows)
+        append_graph_timing(
+            output_dir,
+            "milvus_write",
+            milvus_started_at,
+            **milvus_meta,
+        )
 
+        writing_started_at = graph_timer_start(
+            output_dir,
+            "result_writing",
+            catalogCount=len(flatten_catalog(catalog_items)),
+            questionCount=len(raw_questions),
+        )
         set_state("writing", 96, "正在写入结果文件")
         (output_dir / "catalog.json").write_text(
             json.dumps({"items": catalog_items}, ensure_ascii=False, indent=2),
@@ -2015,15 +2203,38 @@ async def run_graph_extract_file(file_item: Dict[str, Any], batch: Dict[str, Any
             json.dumps(meta, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        append_graph_timing(
+            output_dir,
+            "result_writing",
+            writing_started_at,
+            files=["catalog.json", "questions.jsonl", "meta.json"],
+        )
 
         file_item["finishedAt"] = now_iso()
         file_item["questionsIndexed"] = len(raw_questions)
         set_state("done", 100, "抽取图完成")
+        append_graph_timing(
+            output_dir,
+            "graph_extract",
+            total_started_at,
+            status="done",
+            paragraphCount=len(paragraphs),
+            chunkCount=len(chunks),
+            questionCount=len(raw_questions),
+            questionsIndexed=len(raw_questions),
+        )
     except Exception as exc:
         file_item["finishedAt"] = now_iso()
         file_item["error"] = str(exc)[-1000:]
         file_item["_terminal"] = True
         set_state("failed", 0, "抽取图失败")
+        append_graph_timing(
+            output_dir,
+            "graph_extract",
+            total_started_at,
+            status="failed",
+            error=file_item["error"],
+        )
 
 
 async def process_graph_batch(batch_id: str) -> None:
@@ -2031,7 +2242,13 @@ async def process_graph_batch(batch_id: str) -> None:
     batch["status"] = "running"
     batch["startedAt"] = now_iso()
     summarize_graph_batch(batch)
-    await asyncio.gather(*(run_graph_extract_file(file_item, batch) for file_item in batch["files"]))
+    graph_file_semaphore = asyncio.Semaphore(max(1, MAX_CONCURRENT_GRAPH_FILES))
+
+    async def run_file_with_limit(file_item: Dict[str, Any]) -> None:
+        async with graph_file_semaphore:
+            await run_graph_extract_file(file_item, batch)
+
+    await asyncio.gather(*(run_file_with_limit(file_item) for file_item in batch["files"]))
     summarize_graph_batch(batch)
 
 
@@ -2301,7 +2518,7 @@ async def upload_knowledge_files(
             skipped.append("unknown")
             continue
 
-        target_relative_path = safe_relative_path(original_path)
+        target_relative_path = Path(safe_relative_path(original_path).name)
         extension = target_relative_path.suffix.lower()
         if extension not in ALLOWED_EXTENSIONS:
             skipped.append(original_path)
@@ -2415,6 +2632,77 @@ def get_parse_batch(batch_id: str) -> Dict[str, Any]:
     return batch
 
 
+@app.post("/api/knowledge/parse-status")
+def get_parse_file_status(payload: ParseStatusRequest) -> Dict[str, Any]:
+    files: List[Dict[str, Any]] = []
+
+    for item in payload.files:
+        source_path = safe_tmp_path(item.storedPath)
+        output_dir = output_dir_for_file(payload.knowledgeName, item.storedPath)
+        state = parse_file_states.get(item.storedPath)
+
+        if state:
+            files.append(state.copy())
+            continue
+
+        meta_path = output_dir / "meta.json"
+        if meta_path.exists():
+            try:
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            except Exception as exc:
+                files.append(
+                    {
+                        "storedPath": item.storedPath,
+                        "name": item.name or source_path.name,
+                        "status": "failed",
+                        "progress": 0,
+                        "error": str(exc)[-1000:],
+                        "outputPath": output_dir.relative_to(ROOT_DIR).as_posix(),
+                    }
+                )
+                continue
+
+            status = "parsed" if meta.get("status") == "parsed" else "failed"
+            files.append(
+                {
+                    "storedPath": item.storedPath,
+                    "name": item.name or source_path.name,
+                    "status": status,
+                    "progress": 100 if status == "parsed" else 0,
+                    "error": None if status == "parsed" else meta.get("error"),
+                    "outputPath": output_dir.relative_to(ROOT_DIR).as_posix(),
+                    "mineruEndpoint": meta.get("mineruEndpoint"),
+                    "responseType": meta.get("responseType"),
+                    "resultPath": meta.get("resultPath"),
+                    "finishedAt": meta.get("finishedAt"),
+                }
+            )
+            continue
+
+        files.append(
+            {
+                "storedPath": item.storedPath,
+                "name": item.name or source_path.name,
+                "status": "queued" if source_path.exists() else "failed",
+                "progress": 0,
+                "error": None if source_path.exists() else f"File not found: {item.storedPath}",
+                "outputPath": output_dir.relative_to(ROOT_DIR).as_posix(),
+            }
+        )
+
+    batch = {
+        "id": "parse-status",
+        "knowledgeName": payload.knowledgeName,
+        "status": "queued",
+        "createdAt": now_iso(),
+        "startedAt": None,
+        "finishedAt": None,
+        "files": files,
+    }
+    summarize_batch(batch)
+    return batch
+
+
 @app.post("/api/knowledge/graph-extract")
 async def graph_extract_knowledge_files(payload: GraphExtractFilesRequest) -> Dict[str, Any]:
     if not payload.files:
@@ -2427,6 +2715,7 @@ async def graph_extract_knowledge_files(payload: GraphExtractFilesRequest) -> Di
     options["llmMaxRetries"] = max(1, min(10, int(options.get("llmMaxRetries") or GRAPH_LLM_MAX_RETRIES)))
     options["catalogMergeMode"] = "llm" if options.get("catalogMergeMode") == "llm" else "rule"
     options["forceRebuild"] = bool(options.get("forceRebuild"))
+    options["maxConcurrentFiles"] = max(1, MAX_CONCURRENT_GRAPH_FILES)
 
     batch_id = uuid.uuid4().hex
     files: List[Dict[str, Any]] = []
@@ -2478,5 +2767,79 @@ def get_graph_extract_batch(batch_id: str) -> Dict[str, Any]:
     batch = graph_batches.get(batch_id)
     if not batch:
         raise HTTPException(status_code=404, detail="Graph extract batch not found")
+    summarize_graph_batch(batch)
+    return batch
+
+
+@app.post("/api/knowledge/graph-status")
+def get_graph_file_status(payload: GraphStatusRequest) -> Dict[str, Any]:
+    files: List[Dict[str, Any]] = []
+
+    for item in payload.files:
+        source_path = safe_tmp_path(item.storedPath)
+        output_dir = graph_dir_for_file(payload.knowledgeName, item.storedPath)
+        state = graph_file_states.get(item.storedPath)
+
+        if state:
+            files.append(state.copy())
+            continue
+
+        meta_path = output_dir / "meta.json"
+        if meta_path.exists():
+            try:
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            except Exception as exc:
+                files.append(
+                    {
+                        "storedPath": item.storedPath,
+                        "name": item.name or source_path.name,
+                        "status": "failed",
+                        "progress": 0,
+                        "message": "读取图谱结果失败",
+                        "error": str(exc)[-1000:],
+                        "outputPath": output_dir.relative_to(ROOT_DIR).as_posix(),
+                    }
+                )
+                continue
+
+            files.append(
+                {
+                    "storedPath": item.storedPath,
+                    "name": meta.get("fileName") or item.name or source_path.name,
+                    "status": "done" if meta.get("status") == "done" else "failed",
+                    "progress": 100 if meta.get("status") == "done" else 0,
+                    "message": "抽取图完成" if meta.get("status") == "done" else "抽取图失败",
+                    "error": None if meta.get("status") == "done" else meta.get("error"),
+                    "contentListPath": meta.get("contentListPath"),
+                    "outputPath": output_dir.relative_to(ROOT_DIR).as_posix(),
+                    "chunksTotal": meta.get("chunkCount", 0),
+                    "chunksDone": meta.get("chunkCount", 0),
+                    "questionsIndexed": meta.get("questionCount", 0),
+                    "finishedAt": meta.get("createdAt"),
+                }
+            )
+            continue
+
+        files.append(
+            {
+                "storedPath": item.storedPath,
+                "name": item.name or source_path.name,
+                "status": "queued" if source_path.exists() else "failed",
+                "progress": 0,
+                "message": "等待抽取图" if source_path.exists() else "文件不存在",
+                "error": None if source_path.exists() else f"File not found: {item.storedPath}",
+                "outputPath": output_dir.relative_to(ROOT_DIR).as_posix(),
+            }
+        )
+
+    batch = {
+        "id": "graph-status",
+        "knowledgeName": payload.knowledgeName,
+        "status": "queued",
+        "createdAt": now_iso(),
+        "startedAt": None,
+        "finishedAt": None,
+        "files": files,
+    }
     summarize_graph_batch(batch)
     return batch

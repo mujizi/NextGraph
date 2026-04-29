@@ -7,7 +7,6 @@ import {
   Controls,
   Handle,
   MarkerType,
-  MiniMap,
   Position,
   ReactFlow,
   type Edge,
@@ -24,6 +23,7 @@ import {
   Filter,
   FolderOpen,
   House,
+  Maximize2,
   MessageCircle,
   MoreHorizontal,
   Plus,
@@ -91,6 +91,7 @@ type CatalogGraphBook = {
 type CatalogGraphNode = {
   catalogId: string;
   title: string;
+  summary?: string;
   path: string[];
   depth: number;
   selected: boolean;
@@ -99,6 +100,8 @@ type CatalogGraphNode = {
 type GraphNodeData = {
   label: string;
   eyebrow?: string;
+  summary?: string;
+  path?: string[];
   selected?: boolean;
   icon?: "book";
   tone?: "book" | "focus" | "context" | "leaf";
@@ -408,7 +411,7 @@ function getFileExtension(fileName: string) {
 }
 
 function getUploadRelativePath(file: File) {
-  return (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
+  return file.name;
 }
 
 function formatUploadDate(date: Date) {
@@ -1060,6 +1063,130 @@ function KnowledgePage({
     };
   }, [activeGraphBatchId, selectedKnowledgeId]);
 
+  const tableFiles = selectedKnowledge ? knowledgeFiles[selectedKnowledge.id] ?? [] : [];
+
+  React.useEffect(() => {
+    if (!selectedKnowledge || activeParseBatchId) return;
+
+    const staleParseFiles = tableFiles.filter(
+      (file): file is KnowledgeFile & { storedPath: string } =>
+        Boolean(file.storedPath) &&
+        (file.parseStatus === "排队中" || file.parseStatus === "解析中"),
+    );
+    if (!staleParseFiles.length) return;
+
+    let cancelled = false;
+
+    const syncParseStatus = async () => {
+      try {
+        const response = await fetch("/api/knowledge/parse-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            knowledgeName: selectedKnowledge.name,
+            files: staleParseFiles.map((file) => ({
+              storedPath: file.storedPath,
+              name: file.name,
+            })),
+          }),
+        });
+        if (!response.ok) return;
+        const batch = (await response.json()) as ParseBatchResponse;
+        if (cancelled) return;
+
+        const stateByPath = new Map(batch.files.map((file) => [file.storedPath, file]));
+        const nextFiles = tableFiles.map((file) => {
+          if (!file.storedPath) return file;
+          const parseState = stateByPath.get(file.storedPath);
+          if (!parseState) return file;
+          if (parseState.status !== "parsed" && parseState.status !== "failed") return file;
+
+          return {
+            ...file,
+            note: toParseNote(parseState.status, parseState.error),
+            parseStatus: toParseStatusLabel(parseState.status),
+            parseProgress: parseState.status === "parsed" ? 100 : 0,
+          };
+        });
+
+        if (nextFiles.some((file, index) => file !== tableFiles[index])) {
+          onFilesChange(selectedKnowledge.id, nextFiles);
+        }
+      } catch {
+        // This only repairs stale local state; live parsing still uses batch polling.
+      }
+    };
+
+    void syncParseStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeParseBatchId, onFilesChange, selectedKnowledge, tableFiles]);
+
+  React.useEffect(() => {
+    if (!selectedKnowledge || activeGraphBatchId) return;
+
+    const staleGraphFiles = tableFiles.filter(
+      (file): file is KnowledgeFile & { storedPath: string } =>
+        file.parseStatus === "完成" &&
+        Boolean(file.storedPath) &&
+        file.graphProgress > 0 &&
+        file.graphProgress < 100,
+    );
+    if (!staleGraphFiles.length) return;
+
+    let cancelled = false;
+
+    const syncGraphStatus = async () => {
+      try {
+        const response = await fetch("/api/knowledge/graph-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            knowledgeName: selectedKnowledge.name,
+            files: staleGraphFiles.map((file) => ({
+              storedPath: file.storedPath,
+              name: file.name,
+            })),
+          }),
+        });
+        if (!response.ok) return;
+        const batch = (await response.json()) as GraphBatchResponse;
+        if (cancelled) return;
+
+        const stateByPath = new Map(batch.files.map((file) => [file.storedPath, file]));
+        const nextFiles = tableFiles.map((file) => {
+          if (!file.storedPath) return file;
+          const graphState = stateByPath.get(file.storedPath);
+          if (!graphState) return file;
+          if (graphState.status !== "done" && graphState.status !== "failed" && graphState.progress <= file.graphProgress) {
+            return file;
+          }
+
+          return {
+            ...file,
+            note: toGraphNote(graphState.status, graphState.message, graphState.error),
+            graphStatus: toGraphStatusLabel(graphState.status),
+            graphProgress: graphState.progress,
+          };
+        });
+
+        if (nextFiles.some((file, index) => file !== tableFiles[index])) {
+          onFilesChange(selectedKnowledge.id, nextFiles);
+        }
+      } catch {
+        // Stale progress correction is best-effort; active polling still owns live batches.
+      }
+    };
+
+    void syncGraphStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeGraphBatchId, onFilesChange, selectedKnowledge, tableFiles]);
+
   if (!selectedKnowledge) {
     return (
       <main className="home page-shell">
@@ -1074,7 +1201,6 @@ function KnowledgePage({
     );
   }
 
-  const tableFiles = knowledgeFiles[selectedKnowledge.id] ?? [];
   const selectedCount = tableFiles.filter((file) => file.checked).length;
   const parseRunning = activeParseBatchId !== null;
   const graphRunning = activeGraphBatchId !== null;
@@ -1170,7 +1296,7 @@ function KnowledgePage({
         id: `${file.storedPath}-${Date.now()}`,
         checked: false,
         type: file.extension,
-        name: file.relativePath,
+        name: file.name,
         note: "等待解析",
         uploadedAt,
         parseStatus: "未解析" as const,
@@ -1439,9 +1565,6 @@ function KnowledgePage({
 
         <div className="batch-bar">
           <strong>已选择 {selectedCount} 个文件</strong>
-          <button onClick={parseSelectedFiles} disabled={!selectedCount || parseRunning}>
-            {parseRunning ? "解析中" : "解析文件"}
-          </button>
           <div className="batch-parse-progress" aria-label="批量解析完成率">
             <span>
               总数 {parseSummary.total} · 完成 {parseSummary.completed} · 失败{" "}
@@ -1464,6 +1587,13 @@ function KnowledgePage({
             </span>
             <b>{graphSummary.progress}%</b>
           </div>
+          <button
+            className="active"
+            onClick={parseSelectedFiles}
+            disabled={!selectedCount || parseRunning}
+          >
+            {parseRunning ? "解析中" : "解析文件"}
+          </button>
           <button
             className="active"
             onClick={extractSelectedGraphs}
@@ -2159,14 +2289,20 @@ function ConversationPage({
 
 function MaterialPanel({ materials }: { materials: ChatMaterial[] }) {
   const [filter, setFilter] = React.useState<"all" | "local" | "global">("all");
+  const [previewMaterial, setPreviewMaterial] = React.useState<ChatMaterial | null>(null);
   const visibleMaterials =
     filter === "all" ? materials : materials.filter((item) => item.sourceType === filter);
+  const previewText = (text: string) => {
+    const chars = Array.from(text.trim());
+    if (!chars.length) return "";
+    return `${chars.slice(0, 5).join("")}...`;
+  };
 
   return (
     <aside className="material-panel">
       <div className="material-panel-head">
         <div>
-          <strong>素材</strong>
+          <strong>参考原文件</strong>
           <span>{visibleMaterials.length}/{materials.length} 条</span>
         </div>
         <label className="material-filter">
@@ -2181,9 +2317,18 @@ function MaterialPanel({ materials }: { materials: ChatMaterial[] }) {
         {visibleMaterials.length ? (
           visibleMaterials.map((item) => (
             <article className="material-card" key={item.id}>
-              <div className="material-preview">
+              <button
+                className="material-preview"
+                type="button"
+                onClick={() => setPreviewMaterial(item)}
+                aria-label={`放大查看 ${item.fileName} 第 ${item.pageIdx + 1} 页原文截图`}
+              >
                 <img src={item.imageUrl} alt={`${item.fileName} ${item.paragraphId}`} loading="lazy" />
-              </div>
+                <span className="material-preview-action">
+                  <Maximize2 size={14} />
+                  放大
+                </span>
+              </button>
               <div className="material-file">
                 <span className="material-thumb">PDF</span>
                 <div>
@@ -2194,7 +2339,7 @@ function MaterialPanel({ materials }: { materials: ChatMaterial[] }) {
                   </small>
                 </div>
               </div>
-              {item.text && <p>{item.text}</p>}
+              {item.text && <p className="material-snippet">{previewText(item.text)}</p>}
             </article>
           ))
         ) : (
@@ -2203,6 +2348,33 @@ function MaterialPanel({ materials }: { materials: ChatMaterial[] }) {
           </div>
         )}
       </div>
+      {previewMaterial && (
+        <div className="source-preview-backdrop" role="presentation" onClick={() => setPreviewMaterial(null)}>
+          <section
+            className="source-preview-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="原文截图预览"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="source-preview-head">
+              <div>
+                <strong title={previewMaterial.fileName}>{previewMaterial.fileName}</strong>
+                <span>
+                  {previewMaterial.sourceType === "local" ? "Local" : "Global"} · p.{previewMaterial.pageIdx + 1} ·{" "}
+                  {previewMaterial.paragraphId}
+                </span>
+              </div>
+              <button type="button" onClick={() => setPreviewMaterial(null)} aria-label="关闭原文截图预览">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="source-preview-image">
+              <img src={previewMaterial.imageUrl} alt={`${previewMaterial.fileName} ${previewMaterial.paragraphId}`} />
+            </div>
+          </section>
+        </div>
+      )}
     </aside>
   );
 }
@@ -2210,6 +2382,7 @@ function MaterialPanel({ materials }: { materials: ChatMaterial[] }) {
 function CatalogGraphPanel({ graph }: { graph?: CatalogGraph }) {
   const books = graph?.books ?? [];
   const [activeFileId, setActiveFileId] = React.useState<string>("");
+  const [selectedNode, setSelectedNode] = React.useState<GraphNodeData | null>(null);
   const activeBook = books.find((book) => book.fileId === activeFileId) ?? books[0];
   const selectedCatalogs = activeBook?.catalogs.filter((node) => node.selected) ?? [];
   const contextCatalogs = activeBook?.catalogs.filter((node) => !node.selected) ?? [];
@@ -2228,6 +2401,10 @@ function CatalogGraphPanel({ graph }: { graph?: CatalogGraph }) {
       setActiveFileId(books[0].fileId);
     }
   }, [activeFileId, books]);
+
+  React.useEffect(() => {
+    setSelectedNode(null);
+  }, [activeBook?.fileId]);
 
   return (
     <aside className="catalog-graph-panel">
@@ -2269,26 +2446,31 @@ function CatalogGraphPanel({ graph }: { graph?: CatalogGraph }) {
             elementsSelectable
             panOnDrag
             zoomOnScroll
+            onNodeClick={(_, node) => setSelectedNode(node.data)}
             proOptions={{ hideAttribution: true }}
           >
             <Background color="#dbe8fb" gap={24} size={1} />
             <Controls showInteractive={false} position="bottom-left" />
-            <MiniMap
-              pannable
-              zoomable
-              position="bottom-right"
-              nodeStrokeWidth={2}
-              nodeColor={(node) => {
-                const tone = node.data?.tone;
-                if (tone === "focus") return "#f1a72f";
-                if (tone === "book") return "#e66a61";
-                if (tone === "leaf") return "#55b7d9";
-                return "#36b39a";
-              }}
-            />
           </ReactFlow>
         ) : (
           <div className="material-empty">Global 检索后会在这里显示图谱关系。</div>
+        )}
+        {activeBook && (
+          <section className="catalog-detail-panel" aria-label="目录节点详情">
+            {selectedNode ? (
+              <>
+                <span>{selectedNode.eyebrow || selectedNode.path?.slice(0, -1).join(" / ") || "目录节点"}</span>
+                <strong>{selectedNode.label}</strong>
+                <p>{selectedNode.summary || "暂无摘要。"}</p>
+              </>
+            ) : (
+              <>
+                <span>节点详情</span>
+                <strong>点击图中的目录节点</strong>
+                <p>这里会显示对应的标题和摘要。</p>
+              </>
+            )}
+          </section>
         )}
       </div>
     </aside>
@@ -2332,6 +2514,8 @@ function buildCatalogFlow(
       data: {
         label: activeBook.fileName,
         eyebrow: "文件",
+        summary: `${activeBook.catalogs.length} 个相关目录，${selectedCatalogs.length} 个命中目录。`,
+        path: [activeBook.fileName],
         icon: "book",
         tone: "book",
         size: 78,
@@ -2350,6 +2534,8 @@ function buildCatalogFlow(
       data: {
         label: node.title,
         eyebrow: node.path.slice(0, -1).join(" / ") || "命中目录",
+        summary: node.summary,
+        path: node.path,
         selected: true,
         tone: "focus",
         size: 76,
@@ -2385,6 +2571,8 @@ function buildCatalogFlow(
       data: {
         label: node.title,
         eyebrow: node.path.slice(0, -1).join(" / ") || "周围目录",
+        summary: node.summary,
+        path: node.path,
         tone: index % 4 === 0 ? "leaf" : "context",
         size,
       },

@@ -1313,15 +1313,33 @@ button {
   box-shadow: 0 8px 18px rgba(23, 32, 51, 0.04);
 }
 
+.material-card + .material-card {
+  position: relative;
+  margin-top: 18px;
+}
+
+.material-card + .material-card::before {
+  position: absolute;
+  top: -17px;
+  left: 8px;
+  right: 8px;
+  height: 1px;
+  content: "";
+  background: var(--line-strong);
+}
+
 .material-preview {
   display: grid;
+  position: relative;
   height: 124px;
+  width: 100%;
   margin-bottom: 8px;
   overflow: hidden;
   place-items: center;
   background: #f4f8ff;
   border: 1px solid var(--line);
   border-radius: 6px;
+  cursor: zoom-in;
 }
 
 .material-preview img {
@@ -1329,6 +1347,30 @@ button {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.material-preview-action {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.material-preview:hover .material-preview-action,
+.material-preview:focus-visible .material-preview-action {
+  opacity: 1;
 }
 
 .material-file {
@@ -1390,6 +1432,21 @@ button {
   -webkit-box-orient: vertical;
 }
 
+.material-card .material-snippet {
+  display: block;
+  max-height: none;
+  padding: 8px 9px;
+  margin-top: 9px;
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background: #f8fbff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
 .material-empty {
   padding: 14px;
   margin: 0;
@@ -1397,6 +1454,81 @@ button {
   background: #fff;
   border: 1px dashed var(--line-strong);
   border-radius: 8px;
+}
+
+.source-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 26px;
+  background: rgba(23, 32, 51, 0.46);
+}
+
+.source-preview-modal {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(980px, 96vw);
+  max-height: 92vh;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 24px 80px rgba(23, 32, 51, 0.24);
+}
+
+.source-preview-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.source-preview-head strong,
+.source-preview-head span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-preview-head strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.source-preview-head span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.source-preview-head button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: var(--muted);
+  background: var(--work);
+  border-radius: 8px;
+}
+
+.source-preview-image {
+  display: grid;
+  min-height: 0;
+  overflow: auto;
+  place-items: start center;
+  background: #f4f8ff;
+}
+
+.source-preview-image img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
 }
 
 .catalog-graph-panel {
@@ -1445,6 +1577,47 @@ button {
   border: 1px solid var(--line);
   border-radius: 8px;
   box-shadow: 0 8px 18px rgba(23, 32, 51, 0.06);
+}
+
+.catalog-detail-panel {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 8;
+  display: grid;
+  gap: 6px;
+  width: min(360px, calc(100% - 92px));
+  min-height: 132px;
+  max-height: 188px;
+  padding: 13px 14px;
+  overflow: auto;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgba(23, 32, 51, 0.1);
+}
+
+.catalog-detail-panel span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalog-detail-panel strong {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.32;
+}
+
+.catalog-detail-panel p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.62;
 }
 
 .flow-catalog-node {
