@@ -71,6 +71,8 @@ class Settings(BaseSettings):
     default_relation_top_k: int = Field(default=8, ge=1, le=100)
     default_expansion_degree: int = Field(default=1, ge=0, le=4)
     relation_number_threshold: int = Field(default=1000, ge=1)
+    entity_score_threshold: float = Field(default=0.2, ge=-1.0, le=1.0)
+    relation_score_threshold: float = Field(default=0.3, ge=-1.0, le=1.0)
     hybrid_semantic_weight: float = Field(default=0.55, gt=0.0, lt=1.0)
     hybrid_triple_weight: float = Field(default=0.45, gt=0.0, lt=1.0)
 

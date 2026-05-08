@@ -19,6 +19,8 @@ class FakeQueryEntityExtractor:
     def extract(self, query: str, *, user_id: str, kb_id: str, semantic_limit: int) -> list[str]:
         if query == "alice query" and user_id == "u1" and kb_id == "kb1":
             return ["Alice"]
+        if query == "low query" and user_id == "u1" and kb_id == "kb1":
+            return ["Noise"]
         return []
 
 
@@ -48,6 +50,8 @@ class FakeRepository:
             return [dict(self.entity_rows[0], score=0.99)]
         if query_vector == [1.0, 0.0, 0.0, 0.0]:
             return [dict(self.entity_rows[0], score=0.91)]
+        if query_vector == [0.2, 0.0, 0.0, 0.0]:
+            return [dict(self.entity_rows[0], score=0.14)]
         return []
 
     def search_relations(self, query_vector, *, user_id: str, kb_id: str, limit: int, relation_ids=None):
@@ -61,6 +65,8 @@ class FakeRepository:
                 dict(self.relation_rows[2], score=0.72),
             ]
             return [row for row in rows if row["id"] in relation_ids][:limit]
+        if query_vector == [0.2, 0.0, 0.0, 0.0]:
+            return [dict(self.relation_rows[0], score=0.18)]
         return [dict(self.relation_rows[0], score=0.88)]
 
     def get_relations_by_ids(self, relation_ids, *, user_id: str, kb_id: str):
@@ -78,7 +84,7 @@ def build_service() -> SearchService:
     return SearchService(
         settings=settings,
         repository=FakeRepository(),
-        embedder=FakeEmbedder({"alice query": [1.0, 0.0, 0.0, 0.0], "Alice": [0.9, 0.0, 0.0, 0.0]}),
+        embedder=FakeEmbedder({"alice query": [1.0, 0.0, 0.0, 0.0], "Alice": [0.9, 0.0, 0.0, 0.0], "Noise": [0.2, 0.0, 0.0, 0.0]}),
         query_entity_extractor=FakeQueryEntityExtractor(),
     )
 
@@ -117,4 +123,13 @@ def test_scope_filter_excludes_other_users():
 
     assert response.results == []
     assert response.entity_hits == []
+    assert response.grounded_passages == []
+
+
+def test_low_score_noise_is_filtered_out():
+    service = build_service()
+    service.embedder.mapping['low query'] = [0.2, 0.0, 0.0, 0.0]
+    response = service.search(SearchRequest(query='low query', user_id='u1', kb_id='kb1', mode=SearchMode.hybrid))
+
+    assert response.results == []
     assert response.grounded_passages == []

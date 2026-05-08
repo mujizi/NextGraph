@@ -41,6 +41,10 @@ class SearchService:
         self.embedder = embedder
         self.query_entity_extractor = query_entity_extractor or AzureLLMQueryEntityExtractor(settings)
 
+    @staticmethod
+    def _filter_rows_by_score(rows: list[dict[str, Any]], threshold: float) -> list[dict[str, Any]]:
+        return [row for row in rows if float(row.get("score", 0.0)) >= threshold]
+
     def search(self, request: SearchRequest) -> SearchResponse:
         started = time.perf_counter()
         query_vector = self.embedder.embed(request.query)
@@ -89,6 +93,7 @@ class SearchService:
                 "semantic_candidate_count": len(semantic_route.relation_candidates) if semantic_route else 0,
                 "triple_candidate_count": len(triple_route.relation_candidates) if triple_route else 0,
                 "hybrid_weights": {"semantic": self.settings.hybrid_semantic_weight, "triple": self.settings.hybrid_triple_weight},
+                "thresholds": {"entity": self.settings.entity_score_threshold, "relation": self.settings.relation_score_threshold},
                 "embedder": self.embedder.__class__.__name__,
                 "route": route_metadata,
             },
@@ -101,7 +106,7 @@ class SearchService:
         query_entities = self._extract_query_entities(request)
         if not query_entities:
             rows = self.repository.search_entities(fallback_query_vector, user_id=request.user_id, kb_id=request.kb_id, limit=request.entity_top_k)
-            return [], rows
+            return [], self._filter_rows_by_score(rows, self.settings.entity_score_threshold)
 
         aggregated: dict[str, dict[str, Any]] = {}
         for query_entity in query_entities:
@@ -112,25 +117,34 @@ class SearchService:
                     aggregated[entity_id] = row
 
         sorted_rows = sorted(aggregated.values(), key=lambda row: float(row.get("score", 0.0)), reverse=True)[: request.entity_top_k]
-        return query_entities, sorted_rows
+        return query_entities, self._filter_rows_by_score(sorted_rows, self.settings.entity_score_threshold)
 
     def _semantic_route(self, *, query_vector: list[float], request: SearchRequest) -> RouteResult:
         query_entities, entity_rows = self._retrieve_seed_entities(request=request, fallback_query_vector=query_vector)
-        relation_rows = self.repository.search_relations(query_vector, user_id=request.user_id, kb_id=request.kb_id, limit=request.relation_top_k)
+        relation_rows = self._filter_rows_by_score(
+            self.repository.search_relations(query_vector, user_id=request.user_id, kb_id=request.kb_id, limit=request.relation_top_k),
+            self.settings.relation_score_threshold,
+        )
         entity_hits = [EntityHit(id=row["id"], name=row.get("name", ""), score=float(row.get("score", 0.0)), relation_ids=list(row.get("relation_ids") or [])) for row in entity_rows]
         relation_candidates = self._build_relation_hits(relation_rows, base_breakdown_key="semantic_score", source_mode="semantic")
         return RouteResult(entity_hits=entity_hits, relation_candidates=relation_candidates, metadata={"query_entities": query_entities, "seed_entity_ids": [row["id"] for row in entity_rows], "seed_relation_ids": [row["id"] for row in relation_rows]})
 
     def _triple_route(self, *, query_vector: list[float], request: SearchRequest) -> RouteResult:
         query_entities, seed_entity_rows = self._retrieve_seed_entities(request=request, fallback_query_vector=query_vector)
-        seed_relation_rows = self.repository.search_relations(query_vector, user_id=request.user_id, kb_id=request.kb_id, limit=request.relation_top_k)
+        seed_relation_rows = self._filter_rows_by_score(
+            self.repository.search_relations(query_vector, user_id=request.user_id, kb_id=request.kb_id, limit=request.relation_top_k),
+            self.settings.relation_score_threshold,
+        )
         entity_hits = [EntityHit(id=row["id"], name=row.get("name", ""), score=float(row.get("score", 0.0)), relation_ids=list(row.get("relation_ids") or [])) for row in seed_entity_rows]
         expansion = self._expand_subgraph(seed_entity_rows=seed_entity_rows, seed_relation_rows=seed_relation_rows, request=request)
         if not expansion.relation_ids:
             return RouteResult(entity_hits=entity_hits, relation_candidates={}, metadata={})
 
         rerank_limit = min(len(expansion.relation_ids), max(request.top_k, request.relation_top_k, self.settings.default_relation_top_k))
-        reranked_rows = self.repository.search_relations(query_vector, user_id=request.user_id, kb_id=request.kb_id, limit=rerank_limit, relation_ids=expansion.relation_ids)
+        reranked_rows = self._filter_rows_by_score(
+            self.repository.search_relations(query_vector, user_id=request.user_id, kb_id=request.kb_id, limit=rerank_limit, relation_ids=expansion.relation_ids),
+            self.settings.relation_score_threshold,
+        )
         relation_candidates = self._build_relation_hits(reranked_rows, base_breakdown_key="triple_score", source_mode="triple", matched_entity_ids=expansion.matched_entity_ids)
         return RouteResult(entity_hits=entity_hits, relation_candidates=relation_candidates, metadata={"query_entities": query_entities, "seed_entity_ids": [row["id"] for row in seed_entity_rows], "seed_relation_ids": [row["id"] for row in seed_relation_rows], "expanded_relation_count": len(expansion.relation_ids), "expanded_entity_count": len(expansion.entity_rows), "expansion_history": expansion.expansion_history})
 

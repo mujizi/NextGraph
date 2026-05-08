@@ -26,6 +26,26 @@ backend/
 └── tests/
 ```
 
+### 重要文件说明
+
+> 下面只列业务上最关键的文件；`__init__.py` 这类文件主要用于包声明或导出，`__pycache__/` 属于运行缓存，不建议关注。
+
+| 文件 | 作用 |
+|---|---|
+| `backend/app/main.py` | FastAPI 应用入口，负责创建应用、挂载 `/health` 健康检查，并把检索路由与 `SearchService` 注入到应用状态中。 |
+| `backend/app/core/config.py` | 统一读取运行配置与环境变量，包括 Milvus、Azure OpenAI、embedding/chat deployment、默认检索参数、分数阈值和 hybrid 权重。 |
+| `backend/app/search/local_global_hybrid/api.py` | 搜索接口路由层，定义 `/api/search`、`/triple`、`/semantic`、`/hybrid` 四个入口，并把请求转交给 `SearchService`。 |
+| `backend/app/search/local_global_hybrid/schemas.py` | 请求/响应模型定义，约束 `SearchRequest`、`SearchResponse`、`RelationHit`、`GroundedPassage` 等数据结构，也是接口文档的基础。 |
+| `backend/app/search/local_global_hybrid/service.py` | 检索核心编排层：负责 query embedding、实体抽取、entity seed retrieval、relation seed retrieval、subgraph expansion、hybrid merge、passage grounding 与 metadata 汇总。 |
+| `backend/app/search/query_entity_extractor.py` | 查询实体抽取组件，调用 Azure OpenAI chat completion，把自然语言问题提取成可用于图检索的 named entities。 |
+| `backend/app/vector_database/search/embedder.py` | 查询向量生成层，封装 Azure OpenAI 与 `vector-graph-rag` 两种 embedding 后端，并提供统一的 `QueryEmbedder` 接口。 |
+| `backend/app/vector_database/search/repository.py` | Milvus 数据访问层，负责 collection 连接、scope filter 组装、实体/关系/段落查询、demo collection 初始化与数据写入。 |
+| `backend/scripts/demo_search.py` | 本地演示脚本：创建 demo collections、灌入示例实体/关系/段落数据，并打印 triple / semantic / hybrid 三种检索结果。 |
+| `backend/tests/conftest.py` | pytest 测试初始化，确保仓库根目录进入 `sys.path`，让测试能直接导入 `backend` 包。 |
+| `backend/tests/test_api.py` | API 层回归测试，验证 FastAPI 路由能正确调用注入的 `SearchService`，以及专用端点会强制覆盖 `mode`。 |
+| `backend/tests/test_search_service.py` | 检索服务核心回归测试，覆盖 triple 扩展、hybrid 融合、用户/知识库隔离、低分噪声过滤、grounded passage 返回等关键行为。 |
+| `backend/requirements.txt` | 后端 Python 依赖清单，包含 FastAPI、pymilvus、pydantic-settings、pytest、OpenAI SDK 等运行与测试所需依赖。 |
+
 ---
 
 ## 环境准备
@@ -53,7 +73,7 @@ pip install -r backend/requirements.txt
 
 ## 配置
 
-后端通过环境变量读取配置。建议在仓库根目录准备 `.env` 文件。
+后端通过环境变量读取配置。建议在仓库根目录准备 **仅本地使用** 的 `.env` 文件，不要提交到 Git 仓库。
 
 最小配置示例：
 
