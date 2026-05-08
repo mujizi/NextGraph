@@ -71,44 +71,24 @@ const initialChats: ChatItem[] = [
   { id: "chat-3", title: "第一章电影剧本写作基础", knowledgeId: "kb-script" },
 ];
 
-const files = [
-  {
-    checked: true,
-    type: "PDF",
-    name: "电影剧本写作基础与角色弧光.pdf",
-    note: "等待 AI 图谱抽取",
-    uploadedAt: "21/04/2026 09:59:20",
-    chunks: "1354",
-    metadata: "0 fields",
-    parser: "Book",
-    progress: 100,
-    state: "完成",
-  },
-  {
-    checked: false,
-    type: "DOC",
-    name: "第一章电影剧本结构.docx",
-    note: "文本解析中",
-    uploadedAt: "21/04/2026 10:12:03",
-    chunks: "842",
-    metadata: "3 fields",
-    parser: "Text",
-    progress: 63,
-    state: "63%",
-  },
-  {
-    checked: false,
-    type: "MD",
-    name: "角色动机与冲突设计.md",
-    note: "等待中",
-    uploadedAt: "21/04/2026 10:40:11",
-    chunks: "-",
-    metadata: "0 fields",
-    parser: "Markdown",
-    progress: 0,
-    state: "等待中",
-  },
-];
+// 🌟 后端地址配置
+const BACKEND_URL = `${window.location.protocol}//${window.location.hostname}:8000`;
+
+// 🌟 文件类型徽标颜色映射字典
+export const getFileBadgeStyle = (filename: string) => {
+  const ext = filename.split('.').pop()?.toLowerCase() || "unknown";
+  const styles: Record<string, { bg: string, color: string }> = {
+    pdf: { bg: '#ffebee', color: '#f44336' },
+    doc: { bg: '#e3f2fd', color: '#2196f3' },
+    docx: { bg: '#e3f2fd', color: '#2196f3' },
+    md: { bg: '#e8f5e9', color: '#4caf50' },
+    json: { bg: '#fff3e0', color: '#ff9800' },
+    txt: { bg: '#f3e5f5', color: '#9c27b0' },
+    csv: { bg: '#e0f7fa', color: '#00bcd4' },
+    xlsx: { bg: '#e8f5e9', color: '#4caf50' },
+  };
+  return { ext: ext.toUpperCase(), style: styles[ext] || { bg: '#f5f5f5', color: '#607d8b' } };
+};
 
 function App() {
   const [page, setPage] = React.useState<Page>("home");
@@ -124,16 +104,181 @@ function App() {
   const [chats, setChats] = React.useState<ChatItem[]>(initialChats);
   const [activeChatId, setActiveChatId] = React.useState(initialChats[0].id);
 
+  // ================= 🌟 状态管理 =================
+  const [pendingFiles, setPendingFiles] = React.useState<File[]>([]);
+  const [pendingPaths, setPendingPaths] = React.useState<string[]>([]);
+  const [uploadStatus, setUploadStatus] = React.useState("");
+
+  const [showConflictModal, setShowConflictModal] = React.useState(false);
+  const [conflictQueue, setConflictQueue] = React.useState<string[]>([]);
+  const [currentConflictIndex, setCurrentConflictIndex] = React.useState(0);
+  const [applyToAll, setApplyToAll] = React.useState(false);
+  const [resolutions, setResolutions] = React.useState<Record<string, "replace" | "rename" | "skip">>({});
+
+  const [serverFiles, setServerFiles] = React.useState<any[]>([]);
+  const [selectedForDelete, setSelectedForDelete] = React.useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = React.useState(false);
+
+  const [showDeleteModal, setShowDeleteModal] = React.useState(false);
+
+  const folderInputRef = React.useRef<HTMLInputElement>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const fetchServerFiles = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/delete/list`);
+      const data = await res.json();
+      if (data.code === 200) {
+        setServerFiles(data.files);
+        setSelectedForDelete(new Set()); 
+      }
+    } catch (err) {
+      console.error("获取服务器文件列表失败", err);
+    }
+  };
+
+  React.useEffect(() => {
+    if (page === "knowledge" && selectedKnowledgeId) fetchServerFiles();
+  }, [page, selectedKnowledgeId]);
+
+  const startUpload = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    type WebkitFile = File & { webkitRelativePath?: string };
+    const filesArray = Array.from(fileList) as WebkitFile[];
+    const pathsArray = filesArray.map((f) => f.webkitRelativePath || f.name);
+
+    setUploadStatus("正在预检冲突...");
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/upload/check_conflicts`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paths: pathsArray }),
+      });
+      if (!res.ok) throw new Error(`check_conflicts failed: ${res.status}`);
+      const data = await res.json();
+
+      if (data.conflicts && data.conflicts.length > 0) {
+        setConflictQueue(data.conflicts);
+        setCurrentConflictIndex(0);
+        setApplyToAll(false);
+        setResolutions({});
+        setPendingFiles(filesArray);
+        setPendingPaths(pathsArray);
+        setShowConflictModal(true);
+      } else {
+        executeUpload(filesArray, pathsArray);
+      }
+    } catch (e) {
+      alert("后端服务未响应，请检查 backend/app/main.py 是否运行");
+      setUploadStatus("");
+    }
+  };
+
+  const handleResolve = (action: "replace" | "rename" | "skip") => {
+    if (applyToAll) {
+      const newRes = { ...resolutions };
+      for (let i = currentConflictIndex; i < conflictQueue.length; i++) newRes[conflictQueue[i]] = action;
+      setShowConflictModal(false);
+      processFinalUpload(newRes);
+    } else {
+      const currentPath = conflictQueue[currentConflictIndex];
+      const newRes = { ...resolutions, [currentPath]: action };
+      if (currentConflictIndex + 1 < conflictQueue.length) {
+        setResolutions(newRes);
+        setCurrentConflictIndex(currentConflictIndex + 1);
+      } else {
+        setShowConflictModal(false);
+        processFinalUpload(newRes);
+      }
+    }
+  };
+
+  const cancelUpload = () => {
+    setShowConflictModal(false);
+    setConflictQueue([]);
+    setPendingFiles([]);
+    setPendingPaths([]);
+    setUploadStatus("已取消上传");
+    setTimeout(() => setUploadStatus(""), 3000);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (folderInputRef.current) folderInputRef.current.value = "";
+  };
+
+  const processFinalUpload = (finalResolutions: Record<string, "replace" | "rename" | "skip">) => {
+    let finalFiles: File[] = [];
+    let finalPaths: string[] = [];
+    pendingFiles.forEach((file, i) => {
+      const path = pendingPaths[i];
+      const decision = finalResolutions[path];
+      if (decision === "skip") return; 
+      if (decision === "rename") {
+        const dotIdx = path.lastIndexOf('.');
+        const randomSuffix = Math.floor(Math.random() * 10000);
+        const newPath = dotIdx > 0 ? `${path.substring(0, dotIdx)}(1)_${randomSuffix}${path.substring(dotIdx)}` : `${path}(1)_${randomSuffix}`;
+        finalFiles.push(file);
+        finalPaths.push(newPath);
+      } else {
+        finalFiles.push(file);
+        finalPaths.push(path);
+      }
+    });
+    if (finalFiles.length > 0) executeUpload(finalFiles, finalPaths);
+    else { setUploadStatus("所有冲突已被跳过，无新文件上传"); setTimeout(() => setUploadStatus(""), 3000); }
+  };
+
+  const executeUpload = async (files: File[], paths: string[]) => {
+    setUploadStatus("文件上传中...");
+    const formData = new FormData();
+    files.forEach((f, i) => { formData.append("files", f); formData.append("target_paths", paths[i]); });
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/upload/do_upload`, { method: "POST", body: formData });
+      if (!res.ok) throw new Error(`do_upload failed: ${res.status}`);
+      setUploadStatus("上传成功"); setTimeout(() => setUploadStatus(""), 3000);
+      fetchServerFiles(); 
+    } catch (e) {
+      setUploadStatus("上传失败");
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (folderInputRef.current) folderInputRef.current.value = "";
+    }
+  };
+
+  // 共享的文件夹分组逻辑
+  const groupedFiles = React.useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    serverFiles.forEach(file => {
+      const parts = file.path.split('/');
+      const folder = parts.length > 1 ? parts.slice(0, -1).join('/') : "根目录";
+      if (!groups[folder]) groups[folder] = [];
+      groups[folder].push(file);
+    });
+    return groups;
+  }, [serverFiles]);
+
+  const confirmDelete = async () => {
+    if (selectedForDelete.size === 0) return;
+    setIsDeleting(true);
+    const pathsToDelete = new Set(selectedForDelete);
+    Object.entries(groupedFiles).forEach(([folder, filesInFolder]) => {
+      if (folder !== "根目录" && filesInFolder.length > 0 && filesInFolder.every((f: any) => selectedForDelete.has(f.path))) {
+        pathsToDelete.add(folder); 
+      }
+    });
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/delete/batch`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paths: Array.from(pathsToDelete) }),
+      });
+      if (res.ok) {
+        alert("删除成功！");
+        setShowDeleteModal(false);
+        fetchServerFiles();
+      } else { alert("部分删除失败"); }
+    } catch (e) { alert("删除请求出错"); } finally { setIsDeleting(false); }
+  };
+
   const openPage = (nextPage: Page) => {
-    if (nextPage === "knowledge") {
-      setSelectedKnowledgeId(null);
-    }
-    if (nextPage === "chat") {
-      setSelectedChatKnowledgeId(null);
-    }
-    if (nextPage === "search") {
-      setSelectedSearchKnowledgeId(null);
-    }
+    if (nextPage === "knowledge") setSelectedKnowledgeId(null);
+    if (nextPage === "chat") setSelectedChatKnowledgeId(null);
+    if (nextPage === "search") setSelectedSearchKnowledgeId(null);
     setPage(nextPage);
   };
 
@@ -148,7 +293,6 @@ function App() {
       status: "待解析",
       tone: nextIndex % 2 === 0 ? "purple" : "amber",
     };
-
     setKnowledgeBases((current) => [...current, newKnowledge]);
   };
 
@@ -194,6 +338,16 @@ function App() {
           onOpenKnowledge={openKnowledgeBase}
           onRenameKnowledge={renameKnowledgeBase}
           onBackToList={() => setSelectedKnowledgeId(null)}
+          onUploadFolder={() => folderInputRef.current?.click()}
+          onUploadFile={() => fileInputRef.current?.click()}
+          onOpenDeleteModal={() => setShowDeleteModal(true)}
+          statusMsg={uploadStatus}
+          serverFiles={serverFiles}
+          selectedForDelete={selectedForDelete}
+          setSelectedForDelete={setSelectedForDelete}
+          onConfirmDelete={confirmDelete}
+          isDeleting={isDeleting}
+          groupedFiles={groupedFiles}
         />
       )}
       {page === "chat" && (
@@ -245,7 +399,188 @@ function App() {
           }}
         />
       )}
+
+      {/* ================= 全局组件与弹窗 ================= */}
+      <input type="file" ref={folderInputRef} hidden /* @ts-ignore */ webkitdirectory="" directory="" multiple onChange={(e) => startUpload(e.target.files)} />
+      <input type="file" ref={fileInputRef} hidden multiple onChange={(e) => startUpload(e.target.files)} />
+
+      {showConflictModal && conflictQueue.length > 0 && (
+        <div className="modal-backdrop" role="presentation" style={{ zIndex: 9999 }}>
+          <div className="modal-card" style={{ maxWidth: '420px' }}>
+            <div className="modal-head" style={{ borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
+              <h2 style={{ fontSize: '16px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sparkles size={18} color="#f39c12" /> 上传冲突 ({currentConflictIndex + 1}/{conflictQueue.length})
+              </h2>
+              <button type="button" aria-label="关闭" onClick={cancelUpload}><X size={17} /></button>
+            </div>
+            <div style={{ padding: '20px' }}>
+              <p style={{ fontSize: '14px', color: '#333', marginBottom: '10px', wordBreak: 'break-all' }}>目标位置已存在同名文件：<br/><strong style={{ color: '#e74c3c' }}>{conflictQueue[currentConflictIndex]}</strong></p>
+              {conflictQueue.length > 1 && currentConflictIndex < conflictQueue.length - 1 && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#555', marginTop: '15px', cursor: 'pointer', background: '#f9f9f9', padding: '8px', borderRadius: '4px' }}>
+                  <input type="checkbox" checked={applyToAll} onChange={(e) => setApplyToAll(e.target.checked)} />
+                  为剩余的 <strong>{conflictQueue.length - currentConflictIndex - 1}</strong> 个冲突执行相同操作
+                </label>
+              )}
+            </div>
+            <div className="modal-actions" style={{ flexDirection: 'column', gap: '8px', padding: '0 20px 20px 20px' }}>
+              <button className="primary-small" style={{ width: '100%', background: '#3498db' }} onClick={() => handleResolve('rename')}>保留两者 (自动重命名)</button>
+              <button className="primary-small" style={{ width: '100%', background: '#e74c3c' }} onClick={() => handleResolve('replace')}>直接替换</button>
+              <button className="outline-button" style={{ width: '100%' }} onClick={() => handleResolve('skip')}>跳过此文件</button>
+              <button onClick={cancelUpload} style={{ width: '100%', background: 'transparent', border: 'none', color: '#999', fontSize: '13px', marginTop: '5px', cursor: 'pointer', textDecoration: 'underline' }}>停止本次全部上传</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🌟 独立的带折叠功能的弹窗 */}
+      {showDeleteModal && (
+        <div className="modal-backdrop" role="presentation" style={{ zIndex: 9999 }}>
+          <div className="modal-card" style={{ width: '650px', maxWidth: '95%', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-head" style={{ padding: '20px', borderBottom: '1px solid #eee' }}>
+              <h2 style={{ fontSize: '16px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Database size={18} /> 服务器文件管理
+              </h2>
+              <button type="button" aria-label="关闭" onClick={() => setShowDeleteModal(false)}><X size={17} /></button>
+            </div>
+            
+            <div style={{ padding: '0', overflowY: 'auto', flex: 1, backgroundColor: '#fff' }}>
+              <ModalFileTable 
+                serverFiles={serverFiles} 
+                groupedFiles={groupedFiles}
+                selectedForDelete={selectedForDelete} 
+                setSelectedForDelete={setSelectedForDelete} 
+              />
+            </div>
+
+            <div style={{ padding: '15px 20px', borderTop: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', borderRadius: '0 0 8px 8px' }}>
+              <span style={{ fontSize: '13px', color: '#666' }}>已选择 <strong>{selectedForDelete.size}</strong> 个文件</span>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="button" className="outline-button" onClick={() => setShowDeleteModal(false)}>取消</button>
+                <button 
+                  type="button" className="primary-small" onClick={confirmDelete} disabled={selectedForDelete.size === 0 || isDeleting}
+                  style={{ backgroundColor: selectedForDelete.size > 0 ? '#e74c3c' : '#ccc', cursor: selectedForDelete.size > 0 ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Trash2 size={14} /> {isDeleting ? "删除中..." : "确认删除"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+// === 新增：专用于弹窗内渲染折叠文件的子组件 ===
+function ModalFileTable({ serverFiles, groupedFiles, selectedForDelete, setSelectedForDelete }: any) {
+  const [expandedFolders, setExpandedFolders] = React.useState<Set<string>>(new Set());
+
+  React.useEffect(() => {
+    if (serverFiles) {
+      const folders = new Set<string>();
+      serverFiles.forEach((f: any) => {
+        const parts = f.path.split('/');
+        if (parts.length > 1) folders.add(parts.slice(0, -1).join('/'));
+      });
+      setExpandedFolders(folders);
+    }
+  }, [serverFiles]);
+
+  if (!serverFiles || serverFiles.length === 0) {
+    return <p style={{ color: '#999', textAlign: 'center', padding: '40px 0' }}>服务器上暂无文件</p>;
+  }
+
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+      <thead style={{ position: 'sticky', top: 0, backgroundColor: '#fff', zIndex: 1, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+        <tr>
+          <th style={{ padding: '12px 16px', width: '40px' }}>
+            <input 
+              type="checkbox" 
+              checked={selectedForDelete.size === serverFiles.length && serverFiles.length > 0}
+              onChange={() => {
+                if (selectedForDelete.size === serverFiles.length) setSelectedForDelete(new Set());
+                else setSelectedForDelete(new Set(serverFiles.map((f:any) => f.path)));
+              }}
+            />
+          </th>
+          <th style={{ padding: '12px 8px' }}>目录 / 文件名</th>
+          <th style={{ padding: '12px 8px', color: '#666', width: '25%' }}>服务器路径</th>
+          <th style={{ padding: '12px 16px', color: '#666', width: '80px', textAlign: 'right' }}>大小</th>
+        </tr>
+      </thead>
+      <tbody>
+        {Object.entries(groupedFiles).map(([folder, filesInFolder]: [string, any]) => {
+          const isExpanded = expandedFolders.has(folder);
+          const allSelected = filesInFolder.length > 0 && filesInFolder.every((f: any) => selectedForDelete.has(f.path));
+          const someSelected = filesInFolder.some((f: any) => selectedForDelete.has(f.path));
+
+          return (
+            <React.Fragment key={folder}>
+              <tr style={{ backgroundColor: '#f8fafd', borderBottom: '1px solid #eee' }}>
+                <td style={{ padding: '10px 16px' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={allSelected}
+                    ref={el => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                    onChange={() => {
+                      const newSet = new Set(selectedForDelete);
+                      if (allSelected) filesInFolder.forEach((f: any) => newSet.delete(f.path)); 
+                      else filesInFolder.forEach((f: any) => newSet.add(f.path)); 
+                      setSelectedForDelete(newSet);
+                    }}
+                  />
+                </td>
+                <td colSpan={3} style={{ padding: '10px 16px', paddingLeft: '8px', cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => {
+                      const newExp = new Set(expandedFolders);
+                      if (isExpanded) newExp.delete(folder); else newExp.add(folder);
+                      setExpandedFolders(newExp);
+                    }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: '#888', fontSize: '10px', display: 'inline-block', width: '12px', textAlign: 'center' }}>
+                      {isExpanded ? '▼' : '▶'}
+                    </span>
+                    <FolderOpen size={16} color="#3498db" fill={isExpanded ? "#eaf2f8" : "transparent"} />
+                    <strong style={{ color: '#2c3e50' }}>{folder}</strong>
+                    <span style={{ color: '#95a5a6', fontSize: '12px', fontWeight: 'normal' }}>({filesInFolder.length} 个文件)</span>
+                  </div>
+                </td>
+              </tr>
+              
+              {isExpanded && filesInFolder.map((file: any) => {
+                const { ext, style } = getFileBadgeStyle(file.filename);
+                return (
+                  <tr key={file.path} style={{ borderBottom: '1px solid #f5f5f5', backgroundColor: selectedForDelete.has(file.path) ? '#f4f9ff' : 'transparent' }}>
+                    <td style={{ padding: '10px 16px', paddingLeft: '38px' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={selectedForDelete.has(file.path)}
+                        onChange={() => {
+                          const newSet = new Set(selectedForDelete);
+                          if (newSet.has(file.path)) newSet.delete(file.path);
+                          else newSet.add(file.path);
+                          setSelectedForDelete(newSet);
+                        }}
+                      />
+                    </td>
+                    <td style={{ padding: '10px 8px', fontWeight: '500', display: 'flex', alignItems: 'center' }}>
+                      <span style={{ display: 'inline-block', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', marginRight: '8px', backgroundColor: style.bg, color: style.color }}>
+                        {ext}
+                      </span>
+                      {file.filename}
+                    </td>
+                    <td style={{ padding: '10px 8px', color: '#888', fontSize: '12px', wordBreak: 'break-all' }}>{file.path}</td>
+                    <td style={{ padding: '10px 16px', color: '#888', fontSize: '12px', textAlign: 'right' }}>{file.size_kb} KB</td>
+                  </tr>
+                )
+              })}
+            </React.Fragment>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
@@ -495,15 +830,18 @@ function KnowledgePage({
   onOpenKnowledge,
   onRenameKnowledge,
   onBackToList,
-}: {
-  knowledgeBases: KnowledgeBase[];
-  selectedKnowledgeId: string | null;
-  onCreateKnowledge: () => void;
-  onOpenKnowledge: (id: string) => void;
-  onRenameKnowledge: (id: string, name: string) => void;
-  onBackToList: () => void;
-}) {
-  const selectedKnowledge = knowledgeBases.find((knowledge) => knowledge.id === selectedKnowledgeId);
+  onUploadFolder,
+  onUploadFile,
+  onOpenDeleteModal, // 🌟 接收并绑定这个函数
+  statusMsg,
+  serverFiles,
+  selectedForDelete,
+  setSelectedForDelete,
+  onConfirmDelete,
+  isDeleting,
+  groupedFiles
+}: any) {
+  const selectedKnowledge = knowledgeBases.find((knowledge: any) => knowledge.id === selectedKnowledgeId);
 
   if (!selectedKnowledge) {
     return (
@@ -535,6 +873,7 @@ function KnowledgePage({
             <p>解析成功后才能问答哦。</p>
           </div>
           <div className="toolbar">
+            {statusMsg && <span style={{ fontSize: '13px', color: '#3498db', fontWeight: '500' }}>{statusMsg}</span>}
             <button className="soft-button">
               <Sparkles size={16} />
               AI 抽取图
@@ -547,26 +886,38 @@ function KnowledgePage({
               <Search size={16} />
               <input placeholder="搜索" />
             </label>
-            <button className="outline-button">
+            <button className="outline-button" onClick={onUploadFolder}>
               <FolderUp size={16} />
               文件夹
             </button>
-            <button className="square-primary" aria-label="新增文件">
+            <button className="square-primary" aria-label="新增文件" onClick={onUploadFile}>
               <Upload size={17} />
+            </button>
+            
+            {/* ================= 🌟 终于找回来的弹窗按钮 ================= */}
+            <button className="outline-button" onClick={onOpenDeleteModal} style={{ color: '#e74c3c', borderColor: '#fadbd8', marginLeft: '8px' }}>
+              <Trash2 size={16} />管理文件
             </button>
           </div>
         </div>
 
-        <div className="batch-bar">
-          <strong>已选择 8 个文件</strong>
+        <div className="batch-bar" style={{ opacity: selectedForDelete.size > 0 ? 1 : 0, pointerEvents: selectedForDelete.size > 0 ? 'auto' : 'none', transition: 'opacity 0.2s' }}>
+          <strong>已选择 {selectedForDelete.size} 个文件</strong>
           <button>解析文件</button>
           <button className="active">AI 抽取图</button>
           <span>启用</span>
           <span>停用</span>
-          <span className="danger">删除</span>
+          <span className="danger" onClick={onConfirmDelete} style={{ cursor: isDeleting ? 'wait' : 'pointer', opacity: isDeleting ? 0.5 : 1 }}>
+            {isDeleting ? "删除中..." : "删除"}
+          </span>
         </div>
 
-        <FileTable />
+        <FileTable 
+          serverFiles={serverFiles} 
+          groupedFiles={groupedFiles}
+          selectedForDelete={selectedForDelete} 
+          setSelectedForDelete={setSelectedForDelete} 
+        />
       </section>
     </main>
   );
@@ -635,49 +986,131 @@ function SearchWorkspace({
   );
 }
 
-function FileTable() {
+// 主表格 (带折叠与彩标)
+function FileTable({ serverFiles, groupedFiles, selectedForDelete, setSelectedForDelete }: any) {
+  const [expandedFolders, setExpandedFolders] = React.useState<Set<string>>(new Set());
+
+  React.useEffect(() => {
+    if (serverFiles) {
+      const folders = new Set<string>();
+      serverFiles.forEach((f: any) => {
+        const parts = f.path.split('/');
+        if (parts.length > 1) folders.add(parts.slice(0, -1).join('/'));
+      });
+      setExpandedFolders(folders);
+    }
+  }, [serverFiles]);
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) setSelectedForDelete(new Set(serverFiles.map((f: any) => f.path)));
+    else setSelectedForDelete(new Set());
+  };
+
+  const toggleSelect = (path: string) => {
+    const newSet = new Set(selectedForDelete);
+    if (newSet.has(path)) newSet.delete(path);
+    else newSet.add(path);
+    setSelectedForDelete(newSet);
+  };
+
   return (
     <div className="file-table">
       <div className="table-row table-head">
-        <div className="cell check">□</div>
-        <div className="cell name">名称 ↕</div>
-        <div className="cell date">上传日期 ↕</div>
+        <div className="cell check">
+          <input type="checkbox" checked={serverFiles?.length > 0 && selectedForDelete.size === serverFiles.length} onChange={handleSelectAll} />
+        </div>
+        <div className="cell name">目录 / 文件名 ↕</div>
+        <div className="cell date">大小 ↕</div>
         <div className="cell enable">启用</div>
         <div className="cell chunks">分块数</div>
         <div className="cell meta">元数据</div>
         <div className="cell parser">解析</div>
         <div className="cell actions">动作</div>
       </div>
-      {files.map((file) => (
-        <div className="table-row" key={file.name}>
-          <div className="cell check">{file.checked ? "☑" : "□"}</div>
-          <div className="cell name">
-            <span className={`file-type ${file.type.toLowerCase()}`}>{file.type}</span>
-            <span className="file-name">
-              <strong>{file.name}</strong>
-              <small>{file.note}</small>
-            </span>
-          </div>
-          <div className="cell date">{file.uploadedAt}</div>
-          <div className="cell enable">
-            <span className="switch">
-              <span />
-            </span>
-          </div>
-          <div className="cell chunks">{file.chunks}</div>
-          <div className="cell meta">{file.metadata}</div>
-          <div className="cell parser">
-            <span className="parser-tag">{file.parser}</span>
-          </div>
-          <div className="cell actions">
-            <span className="progress-track">
-              <span style={{ width: `${file.progress}%` }} />
-            </span>
-            <span className={file.progress === 100 ? "done" : "processing"}>{file.state}</span>
-            <MoreHorizontal size={18} />
-          </div>
-        </div>
-      ))}
+
+      {!serverFiles || serverFiles.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>暂无文件，请在上方上传</div>
+      ) : (
+        Object.entries(groupedFiles).map(([folder, filesInFolder]: [string, any]) => {
+          const isExpanded = expandedFolders.has(folder);
+          const allSelected = filesInFolder.length > 0 && filesInFolder.every((f: any) => selectedForDelete.has(f.path));
+          const someSelected = filesInFolder.some((f: any) => selectedForDelete.has(f.path));
+
+          return (
+            <React.Fragment key={folder}>
+              <div className="table-row" style={{ backgroundColor: '#f8fafd', borderBottom: '1px solid #eee' }}>
+                <div className="cell check">
+                  <input 
+                    type="checkbox" 
+                    checked={allSelected}
+                    ref={el => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                    onChange={() => {
+                      const newSet = new Set(selectedForDelete);
+                      if (allSelected) filesInFolder.forEach((f: any) => newSet.delete(f.path)); 
+                      else filesInFolder.forEach((f: any) => newSet.add(f.path)); 
+                      setSelectedForDelete(newSet);
+                    }}
+                  />
+                </div>
+                <div 
+                  className="cell name" 
+                  style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}
+                  onClick={() => {
+                    const newExp = new Set(expandedFolders);
+                    if (isExpanded) newExp.delete(folder); else newExp.add(folder);
+                    setExpandedFolders(newExp);
+                  }}
+                >
+                  <span style={{ color: '#888', fontSize: '10px', display: 'inline-block', width: '12px', textAlign: 'center' }}>
+                    {isExpanded ? '▼' : '▶'}
+                  </span>
+                  <FolderOpen size={16} color="#3498db" fill={isExpanded ? "#eaf2f8" : "transparent"} />
+                  <strong style={{ color: '#2c3e50' }}>{folder}</strong>
+                  <span style={{ color: '#95a5a6', fontSize: '12px', fontWeight: 'normal' }}>({filesInFolder.length} 个文件)</span>
+                </div>
+                <div className="cell date"></div>
+                <div className="cell enable"></div>
+                <div className="cell chunks"></div>
+                <div className="cell meta"></div>
+                <div className="cell parser"></div>
+                <div className="cell actions"></div>
+              </div>
+
+              {isExpanded && filesInFolder.map((file: any) => {
+                const { ext, style } = getFileBadgeStyle(file.filename);
+                const isSelected = selectedForDelete.has(file.path);
+                
+                return (
+                  <div className="table-row" key={file.path} style={{ backgroundColor: isSelected ? '#f4f9ff' : '' }}>
+                    <div className="cell check" style={{ paddingLeft: '32px' }}>
+                      <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(file.path)} />
+                    </div>
+                    <div className="cell name" style={{ paddingLeft: '24px' }}>
+                      <span className="file-type" style={{ backgroundColor: style.bg, color: style.color, border: 'none', fontWeight: 'bold' }}>
+                        {ext}
+                      </span>
+                      <span className="file-name">
+                        <strong>{file.filename}</strong>
+                        <small>{file.path}</small>
+                      </span>
+                    </div>
+                    <div className="cell date">{file.size_kb} KB</div>
+                    <div className="cell enable"><span className="switch"><span /></span></div>
+                    <div className="cell chunks">-</div>
+                    <div className="cell meta">0 fields</div>
+                    <div className="cell parser"><span className="parser-tag">Auto</span></div>
+                    <div className="cell actions">
+                      <span className="progress-track"><span style={{ width: `100%` }} /></span>
+                      <span className="done">已同步</span>
+                      <MoreHorizontal size={18} />
+                    </div>
+                  </div>
+                );
+              })}
+            </React.Fragment>
+          );
+        })
+      )}
     </div>
   );
 }
@@ -843,4 +1276,7 @@ function ChatInput() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+const rootElement = document.getElementById("root");
+if (rootElement) {
+  createRoot(rootElement).render(<App />);
+}
