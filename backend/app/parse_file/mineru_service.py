@@ -42,41 +42,35 @@ VLM_API_KEY = "EMPTY"
 VLM_BASE_URL = "http://10.1.80.12:8416/v1"
 VLM_MODEL_NAME = "/ai/qwen3.5_9b"
 
-# Fixed local MinerU model path (no env var needed from user side).
-MINERU_LOCAL_MODEL_DIR = (
-    "/home/mengsen/.cache/huggingface/hub/models--opendatalab--PDF-Extract-Kit-1.0/"
-    "snapshots/d1336ee3c2975a8b26c4b09ff39dc6b593d34141"
-)
 MINERU_LOCAL_CONFIG_JSON = "/opt/mengsen/NextGraph/backend/storage/mineru.local.json"
 
 
-def _configure_local_mineru_runtime(worker_env: dict[str, str]) -> None:
-    model_root = Path(MINERU_LOCAL_MODEL_DIR).expanduser().resolve()
-    if not model_root.exists():
-        raise FileNotFoundError(f"MinerU本地模型目录不存在: {model_root}")
-
+def _configure_local_mineru_runtime(worker_env: dict[str, str]) -> bool:
     config_path = Path(MINERU_LOCAL_CONFIG_JSON).expanduser().resolve()
-    config_path.parent.mkdir(parents=True, exist_ok=True)
+    if not config_path.exists():
+        return False
+
     config_data: dict[str, Any] = {}
-    if config_path.exists():
-        try:
-            with config_path.open("r", encoding="utf-8") as handle:
-                config_data = json.load(handle)
-        except Exception:
-            config_data = {}
+    try:
+        with config_path.open("r", encoding="utf-8") as handle:
+            config_data = json.load(handle)
+    except Exception:
+        return False
 
     models_dir = config_data.get("models-dir")
     if not isinstance(models_dir, dict):
-        models_dir = {}
-    models_dir["pipeline"] = str(model_root)
-    config_data["models-dir"] = models_dir
+        return False
+    model_dir = models_dir.get("pipeline")
+    if not isinstance(model_dir, str) or not model_dir.strip():
+        return False
 
-    with config_path.open("w", encoding="utf-8") as handle:
-        json.dump(config_data, handle, ensure_ascii=False, indent=2)
+    model_root = Path(model_dir).expanduser().resolve()
+    if not model_root.exists():
+        return False
 
-    # Write into worker env directly; caller doesn't need to export env vars.
     worker_env["MINERU_MODEL_SOURCE"] = "local"
     worker_env["MINERU_TOOLS_CONFIG_JSON"] = str(config_path)
+    return True
 
 
 def _resolve_bound_gpu_id(gpu_id: str) -> str:
