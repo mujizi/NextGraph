@@ -1,1 +1,8 @@
-# Backend dependencies will be added when API implementation starts.
+fastapi
+uvicorn
+openai
+pymilvus
+pydantic
+requests
+reportlab
+pillow

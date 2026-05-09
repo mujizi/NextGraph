@@ -43,9 +43,13 @@ VLM_BASE_URL = "http://10.1.80.12:8416/v1"
 VLM_MODEL_NAME = "/ai/qwen3.5_9b"
 
 MINERU_LOCAL_CONFIG_JSON = "/opt/mengsen/NextGraph/backend/storage/mineru.local.json"
+DEFAULT_MINERU_MODEL_SOURCE = os.environ.get("MINERU_MODEL_SOURCE", "modelscope")
 
 
 def _configure_local_mineru_runtime(worker_env: dict[str, str]) -> bool:
+    if worker_env.get("MINERU_MODEL_SOURCE") != "local":
+        return False
+
     config_path = Path(MINERU_LOCAL_CONFIG_JSON).expanduser().resolve()
     if not config_path.exists():
         return False
@@ -193,6 +197,7 @@ def _run_mineru_for_file(
     vlm_url: str | None,
     env: dict[str, str] | None,
     progress_callback=None,
+    log_path: Path | None = None,
 ) -> None:
     cmd = [
         "mineru",
@@ -237,8 +242,15 @@ def _run_mineru_for_file(
     collected: list[str] = []
     batch_pattern = re.compile(r"batch\\s+(\\d+)/(\\d+)", re.IGNORECASE)
     assert process.stdout is not None
+    log_handle = None
+    if log_path is not None:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_handle = log_path.open("a", encoding="utf-8")
     for line in process.stdout:
         collected.append(line.rstrip("\n"))
+        if log_handle is not None:
+            log_handle.write(line)
+            log_handle.flush()
         if progress_callback is not None:
             matched = batch_pattern.search(line)
             if matched:
@@ -249,6 +261,9 @@ def _run_mineru_for_file(
                     # Keep room for post-enhance stage, max 95% here.
                     progress_callback(round(ratio * 95.0, 2))
     ret = process.wait()
+    if log_handle is not None:
+        log_handle.write(f"\n[mineru exit code] {ret}\n")
+        log_handle.close()
     if ret != 0:
         error_text = "\n".join(collected[-30:]) if collected else "MinerU failed"
         raise RuntimeError(error_text)
@@ -360,7 +375,10 @@ def _resolve_image_path(raw_path: str, base_dir: Path) -> Path | None:
     return None
 
 
-def _enhance_descriptions_after_mineru(file_output_dir: Path) -> tuple[str | None, int, int]:
+def _enhance_descriptions_after_mineru(
+    file_output_dir: Path,
+    progress_callback=None,
+) -> tuple[str | None, int, int]:
     content_json_path = _discover_content_json(file_output_dir)
     if content_json_path is None:
         return None, 0, 0
@@ -374,6 +392,7 @@ def _enhance_descriptions_after_mineru(file_output_dir: Path) -> tuple[str | Non
     enhanced_count = 0
     failed_count = 0
     base_dir = content_json_path.parent
+    image_items: list[tuple[dict[str, Any], Path, str]] = []
 
     for item in content_list:
         if not isinstance(item, dict):
@@ -396,7 +415,10 @@ def _enhance_descriptions_after_mineru(file_output_dir: Path) -> tuple[str | Non
             context_text = f"table_caption={item.get('table_caption', [])}"
         elif item.get("type") == "equation":
             context_text = f"equation={item.get('text', '')}"
+        image_items.append((item, resolved_img_path, context_text))
 
+    total_images = len(image_items)
+    for index, (item, resolved_img_path, context_text) in enumerate(image_items, start=1):
         try:
             enhanced_text = _call_vlm_for_enhanced_description(
                 image_path=resolved_img_path,
@@ -407,6 +429,9 @@ def _enhance_descriptions_after_mineru(file_output_dir: Path) -> tuple[str | Non
         except Exception as exc:  # noqa: BLE001
             item["enhance_error"] = str(exc)
             failed_count += 1
+        finally:
+            if progress_callback is not None and total_images > 0:
+                progress_callback(round(96.0 + (index / total_images) * 3.5, 2))
 
     enhanced_json_path = content_json_path.with_name(
         content_json_path.stem + "_enhanced.json"
@@ -415,6 +440,8 @@ def _enhance_descriptions_after_mineru(file_output_dir: Path) -> tuple[str | Non
         json.dump(content_list, handle, ensure_ascii=False, indent=2)
 
     _postprocess_enhanced_content(enhanced_json_path)
+    if progress_callback is not None:
+        progress_callback(100.0)
 
     return str(enhanced_json_path), enhanced_count, failed_count
 
@@ -514,6 +541,7 @@ def _worker_main(
     bound_gpu_id = _resolve_bound_gpu_id(gpu_id)
     worker_env = os.environ.copy()
     worker_env["CUDA_VISIBLE_DEVICES"] = bound_gpu_id
+    worker_env["MINERU_MODEL_SOURCE"] = DEFAULT_MINERU_MODEL_SOURCE
     _configure_local_mineru_runtime(worker_env)
 
     base_output_dir = Path(output_dir)
@@ -529,6 +557,7 @@ def _worker_main(
         try:
             file_output_dir = _build_file_output_dir(base_output_dir, file_path)
             file_output_dir.mkdir(parents=True, exist_ok=True)
+            log_path = file_output_dir / "mineru_worker.log"
             parse_input_path = _prepare_input_for_mineru(file_path, file_output_dir)
             progress_queue.put({"file_path": str(file_path), "progress": 1.0})
             _run_mineru_for_file(
@@ -547,11 +576,15 @@ def _worker_main(
                 progress_callback=lambda p: progress_queue.put(
                     {"file_path": str(file_path), "progress": p}
                 ),
+                log_path=log_path,
             )
             progress_queue.put({"file_path": str(file_path), "progress": 96.0})
 
             enhanced_json_path, enhanced_count, enhance_failed = _enhance_descriptions_after_mineru(
-                file_output_dir=file_output_dir
+                file_output_dir=file_output_dir,
+                progress_callback=lambda p: progress_queue.put(
+                    {"file_path": str(file_path), "progress": p}
+                ),
             )
             progress_queue.put({"file_path": str(file_path), "progress": 100.0})
 
