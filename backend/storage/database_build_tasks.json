@@ -1,0 +1,143 @@
+{
+  "89ca9a22987947e0b4b4b23c299a4397": {
+    "task_id": "89ca9a22987947e0b4b4b23c299a4397",
+    "status": "completed",
+    "stage": "completed",
+    "message": "构建完成，数据已写入 Milvus。",
+    "progress_percent": 100.0,
+    "kb_id": "test0515",
+    "user_id": "admin_user",
+    "milvus_db": "crx_text0515",
+    "parse_task_id": "8348368d9af9431385d3712a4791cb3c",
+    "created_at": 1778833433.552499,
+    "updated_at": 1778833519.1677787,
+    "completed": 2,
+    "failed": 0,
+    "files": [
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/吹风机手册_1778833428940.txt",
+        "name": "吹风机手册_1778833428940.txt",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/8348368d9af9431385d3712a4791cb3c/吹风机手册_1778833428940_7ecc22a1/吹风机手册_1778833428940/auto/吹风机手册_1778833428940_content_list_enhanced_textified.json",
+        "vector_task_id": "b2ddf9b0521842d983cd01b862e14458",
+        "summary": {
+          "chunks": 0,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/冰箱手册_1778833408486.txt",
+        "name": "冰箱手册_1778833408486.txt",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 1.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/8348368d9af9431385d3712a4791cb3c/冰箱手册_1778833408486_8628bc36/冰箱手册_1778833408486/auto/冰箱手册_1778833408486_content_list_enhanced_textified.json",
+        "vector_task_id": "85fe35c61472479ba2300404f514dd8e",
+        "summary": {
+          "chunks": 0,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0
+        }
+      }
+    ]
+  },
+  "46da18efa7af4f0f963a6f76b829af19": {
+    "task_id": "46da18efa7af4f0f963a6f76b829af19",
+    "status": "failed",
+    "stage": "failed",
+    "message": "构建结束，但存在失败文档。",
+    "progress_percent": 45.0,
+    "kb_id": "test0515",
+    "user_id": "admin_user",
+    "milvus_db": "crx_text0515",
+    "parse_task_id": null,
+    "created_at": 1778837103.297003,
+    "updated_at": 1778837402.1704948,
+    "completed": 0,
+    "failed": 2,
+    "files": [
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/吹风机手册_1778833428940.txt",
+        "name": "吹风机手册_1778833428940.txt",
+        "stage": "failed",
+        "state": "向量化失败：没有成功生成段落 embedding，未写入 Milvus。",
+        "progress": 45,
+        "parse_progress": 100,
+        "vector_progress": 87.03,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/source_text/46da18efa7af4f0f963a6f76b829af19/吹风机手册_1778833428940_textified.json",
+        "vector_task_id": "d44e8c955f124ad3b90c8f225f6eb5a9"
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/冰箱手册_1778833408486.txt",
+        "name": "冰箱手册_1778833408486.txt",
+        "stage": "failed",
+        "state": "向量化失败：没有成功生成段落 embedding，未写入 Milvus。",
+        "progress": 45,
+        "parse_progress": 100,
+        "vector_progress": 86.97,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/source_text/46da18efa7af4f0f963a6f76b829af19/冰箱手册_1778833408486_textified.json",
+        "vector_task_id": "eb81297f171947a18911789155218d12"
+      }
+    ]
+  },
+  "6e3557924b4944f09ccd64ea78dad08d": {
+    "task_id": "6e3557924b4944f09ccd64ea78dad08d",
+    "status": "completed",
+    "stage": "completed",
+    "message": "构建完成，数据已写入 Milvus。",
+    "progress_percent": 100.0,
+    "kb_id": "text0515",
+    "user_id": "admin_user",
+    "milvus_db": "crx_text0515",
+    "parse_task_id": null,
+    "created_at": 1778838026.2791407,
+    "updated_at": 1778838129.8133585,
+    "completed": 2,
+    "failed": 0,
+    "files": [
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/吹风机手册_1778833428940.txt",
+        "name": "吹风机手册_1778833428940.txt",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/source_text/6e3557924b4944f09ccd64ea78dad08d/吹风机手册_1778833428940_textified.json",
+        "vector_task_id": "64aa14c043a14c6794985b6f026faef2",
+        "summary": {
+          "chunks": 6,
+          "entities": 181,
+          "relations": 177,
+          "failed_embeddings": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/冰箱手册_1778833408486.txt",
+        "name": "冰箱手册_1778833408486.txt",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/source_text/6e3557924b4944f09ccd64ea78dad08d/冰箱手册_1778833408486_textified.json",
+        "vector_task_id": "2dc9f97037d5481b8bc92940c55a7b6a",
+        "summary": {
+          "chunks": 6,
+          "entities": 281,
+          "relations": 215,
+          "failed_embeddings": 0
+        }
+      }
+    ]
+  }
+}

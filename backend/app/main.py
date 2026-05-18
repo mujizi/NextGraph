@@ -4,7 +4,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.core.config import Settings, get_settings
-from backend.app.parse_file import router as parse_router
+from backend.app.database_build import router as database_build_router
+from backend.app.parse_file import files_router, router as parse_router
 from backend.app.search.local_global_hybrid.api import router as search_router
 from backend.app.search.local_global_hybrid.service import SearchService
 
@@ -36,6 +37,8 @@ def create_app(
         return {"status": "ok"}
 
     app.include_router(parse_router)
+    app.include_router(files_router)
+    app.include_router(database_build_router)
     app.include_router(search_router)
     return app
 

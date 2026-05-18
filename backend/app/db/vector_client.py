@@ -1,29 +1,39 @@
 import logging
+import os
 from typing import List, Dict, Any
-from pymilvus import connections, Collection, FieldSchema, CollectionSchema, DataType, utility
+from urllib.parse import urlparse
+
+from pymilvus import connections, Collection, FieldSchema, CollectionSchema, DataType, db, utility
 
 logger = logging.getLogger(__name__)
 
 class MilvusClient:
-    def __init__(self, host="10.1.80.16", port="19530"):
+    def __init__(self, host: str | None = None, port: str | None = None, db_name: str | None = None):
+        uri = os.environ.get("NEXTGRAPH_MILVUS_URI", "http://10.1.80.16:19530")
+        parsed = urlparse(uri)
+        self.host = host or parsed.hostname or "10.1.80.16"
+        self.port = port or str(parsed.port or 19530)
+        self.db_name = db_name or os.environ.get("NEXTGRAPH_MILVUS_DB", "crx")
         # 建立连接
         try:
-            connections.connect(
-                alias="default",
-                host=host,
-                port=port,
-                db_name="crx"
-            )
-            logger.info("成功连接至 Milvus")
-            
-            # 1. 确保集合存在
-            self.create_collections_if_not_exists()
-            
-            # 2. 确保索引存在并加载到内存 (新增这一步)
-            self.init_indexes_and_load()
-            
+            self.use_database(self.db_name)
         except Exception as e:
             logger.error(f"Milvus 连接失败: {e}")
+
+    def use_database(self, db_name: str) -> None:
+        self.db_name = db_name or "crx"
+        connections.disconnect(alias="default")
+        try:
+            connections.connect(alias="default", host=self.host, port=self.port)
+            if self.db_name not in db.list_database():
+                db.create_database(self.db_name)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Milvus database 检查/创建失败，将继续使用当前连接: %s", exc)
+        connections.disconnect(alias="default")
+        connections.connect(alias="default", host=self.host, port=self.port, db_name=self.db_name)
+        logger.info("成功连接至 Milvus database: %s", self.db_name)
+        self.create_collections_if_not_exists()
+        self.init_indexes_and_load()
 
     def create_collections_if_not_exists(self):
         """根据你的表结构设计初始化三个集合"""

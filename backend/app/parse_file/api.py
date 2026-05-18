@@ -1,17 +1,84 @@
 from __future__ import annotations
 
 from pathlib import Path
+import shutil
+import time
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field, field_validator
 
 from .mineru_service import TASK_MANAGER, VLM_API_KEY, VLM_BASE_URL, VLM_MODEL_NAME
 
 router = APIRouter(prefix="/parse_file", tags=["parse_file"])
+files_router = APIRouter(prefix="/files", tags=["files"])
 
 DEFAULT_OUTPUT_ROOT = str(
     (Path(__file__).resolve().parent.parent.parent / "storage" / "mineru_output").resolve()
 )
+DEFAULT_UPLOAD_ROOT = (
+    Path(__file__).resolve().parent.parent.parent / "storage" / "uploads"
+).resolve()
+SUPPORTED_UPLOAD_EXTENSIONS = {
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".ppt",
+    ".pptx",
+    ".xls",
+    ".xlsx",
+    ".md",
+    ".txt",
+    ".json",
+}
+
+
+def _safe_upload_name(filename: str) -> str:
+    raw_name = Path(filename or "untitled").name
+    stem = Path(raw_name).stem or "untitled"
+    suffix = Path(raw_name).suffix.lower()
+    safe_stem = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in stem)
+    return f"{safe_stem[:80]}_{int(time.time() * 1000)}{suffix}"
+
+
+def _file_payload(path: Path) -> dict:
+    stat = path.stat()
+    return {
+        "id": str(path),
+        "name": path.name,
+        "path": str(path),
+        "size": stat.st_size,
+        "uploaded_at": int(stat.st_mtime),
+        "extension": path.suffix.lower().lstrip(".") or "file",
+    }
+
+
+@files_router.get("")
+def list_uploaded_files() -> dict:
+    DEFAULT_UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+    files = [
+        _file_payload(path)
+        for path in sorted(DEFAULT_UPLOAD_ROOT.iterdir(), key=lambda item: item.stat().st_mtime, reverse=True)
+        if path.is_file()
+    ]
+    return {"files": files}
+
+
+@files_router.post("/upload")
+def upload_files(files: list[UploadFile] = File(...)) -> dict:
+    DEFAULT_UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+    uploaded: list[dict] = []
+
+    for item in files:
+        suffix = Path(item.filename or "").suffix.lower()
+        if suffix not in SUPPORTED_UPLOAD_EXTENSIONS:
+            raise HTTPException(status_code=400, detail=f"不支持的文件类型: {item.filename}")
+
+        target = DEFAULT_UPLOAD_ROOT / _safe_upload_name(item.filename or "untitled")
+        with target.open("wb") as buffer:
+            shutil.copyfileobj(item.file, buffer)
+        uploaded.append(_file_payload(target))
+
+    return {"files": uploaded}
 
 
 class MineruParseRequest(BaseModel):

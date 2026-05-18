@@ -12,8 +12,8 @@ from openai import AsyncAzureOpenAI
 import hashlib
 from dotenv import load_dotenv
 # 导入单步抽取函数
-from app.triple_extraction.functions import _extract_single_chunk
-from app.db.vector_client import milvus_client
+from backend.app.triple_extraction.functions import _extract_single_chunk
+from backend.app.db.vector_client import milvus_client
 
 load_dotenv()
 
@@ -40,6 +40,7 @@ class VectorizationRequest(BaseModel):
     json_path: str
     max_concurrency: int = 10
     max_chunk_chars: int = 1500
+    chunk_overlap_chars: int = 150
     embedding_model: str = "text-embedding-3-small"
 
 def generate_entity_id(kb_id: str, name: str) -> str:
@@ -52,18 +53,47 @@ def generate_relation_id(kb_id: str, subj: str, rel: str, obj: str) -> str:
     unique_string = f"{kb_id}_{subj}_{rel}_{obj}"
     return "r_" + hashlib.md5(unique_string.encode('utf-8')).hexdigest()[:16]
 
-def merge_json_items(items: List[Dict], max_chars: int) -> List[str]:
-    """将碎片化的 JSON items 合并，不切分超长块"""
+def merge_json_items(items: List[Dict], max_chars: int, overlap_chars: int = 0) -> List[str]:
+    """将碎片化的 JSON items 合并，并切分超长块以避免 embedding 上下文超限。"""
     merged_chunks = []
     current_chunk = ""
+    overlap_chars = max(0, min(overlap_chars, max_chars - 1))
+
+    def split_long_text(text: str) -> List[str]:
+        if len(text) <= max_chars:
+            return [text]
+        chunks = []
+        start = 0
+        while start < len(text):
+            end = min(start + max_chars, len(text))
+            if end < len(text):
+                window = text[start:end]
+                split_at = max(
+                    window.rfind("\n"),
+                    window.rfind("。"),
+                    window.rfind("；"),
+                    window.rfind("."),
+                    window.rfind(";"),
+                )
+                if split_at > max_chars * 0.45:
+                    end = start + split_at + 1
+            chunk = text[start:end].strip()
+            if chunk:
+                chunks.append(chunk)
+            if end >= len(text):
+                break
+            start = max(start + 1, end - overlap_chars)
+        return chunks
+
     for item in items:
         text = item.get("text", "").strip()
         if not text: continue
-        if len(current_chunk) + len(text) > max_chars and current_chunk:
-            merged_chunks.append(current_chunk)
-            current_chunk = text
-        else:
-            current_chunk = (current_chunk + "\n" + text) if current_chunk else text
+        for piece in split_long_text(text):
+            if len(current_chunk) + len(piece) > max_chars and current_chunk:
+                merged_chunks.append(current_chunk)
+                current_chunk = piece
+            else:
+                current_chunk = (current_chunk + "\n" + piece) if current_chunk else piece
     if current_chunk: merged_chunks.append(current_chunk)
     return merged_chunks
 
@@ -109,8 +139,11 @@ async def process_vectorization_task(task_id: str, request: VectorizationRequest
         with open(request.json_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
             items = data.get("items", [])
-        chunks = merge_json_items(items, request.max_chunk_chars)
+        chunks = merge_json_items(items, request.max_chunk_chars, request.chunk_overlap_chars)
         total_chunks = len(chunks)
+        if total_chunks == 0:
+            update_task_status(task_id, "error", "没有可用于向量化的文本块，请检查解析结果或原文件内容。", 0.2)
+            return
         msg = f"合并完成，共 {total_chunks} 个文本块"
         update_task_status(task_id, "init_done", msg, 0.2)
 
@@ -206,6 +239,15 @@ async def process_vectorization_task(task_id: str, request: VectorizationRequest
         valid_passages = [p for p in passages_payload if p["embedding"]]
         valid_entities = [e for e in entities_payload if e["embedding"]]
         valid_relations = [r for r in relations_payload if r["embedding"]]
+
+        if not valid_passages:
+            update_task_status(
+                task_id,
+                "error",
+                "向量化失败：没有成功生成段落 embedding，未写入 Milvus。",
+                0.95,
+            )
+            return
 
         await milvus_client.batch_insert_graph_data({
             "Table1_Entities": valid_entities,
