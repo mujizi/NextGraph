@@ -11,6 +11,8 @@ from backend.app.core.config import Settings
 class MilvusGraphRepository:
     """Milvus access layer for entity/relation/passage retrieval."""
 
+    _ID_QUERY_BATCH_SIZE = 512
+
     def __init__(self, settings: Settings, client: MilvusClient | None = None):
         self.settings = settings
         self.client = client or self._connect()
@@ -56,6 +58,30 @@ class MilvusGraphRepository:
     def _available_fields(self, collection_name: str, requested: Sequence[str]) -> list[str]:
         fields = self._collection_fields(collection_name)
         return [field for field in requested if field in fields]
+
+    def _chunked_query(
+        self,
+        *,
+        collection_name: str,
+        ids: Sequence[str],
+        user_id: str,
+        kb_id: str,
+        output_fields: Sequence[str],
+    ) -> list[dict[str, Any]]:
+        if not ids:
+            return []
+
+        deduped_ids = list(dict.fromkeys(ids))
+        rows: list[dict[str, Any]] = []
+        for start in range(0, len(deduped_ids), self._ID_QUERY_BATCH_SIZE):
+            batch_ids = deduped_ids[start : start + self._ID_QUERY_BATCH_SIZE]
+            batch_rows = self.client.query(
+                collection_name=collection_name,
+                filter=self._compose_filter(self._scope_filter(user_id, kb_id), self._ids_filter(batch_ids)),
+                output_fields=self._available_fields(collection_name, output_fields),
+            )
+            rows.extend(list(batch_rows))
+        return rows
 
     def search_entities(self, query_vector: list[float], *, user_id: str, kb_id: str, limit: int) -> list[dict[str, Any]]:
         if not self.client.has_collection(self.settings.entities_collection):
@@ -115,53 +141,47 @@ class MilvusGraphRepository:
         if not entity_ids or not self.client.has_collection(self.settings.entities_collection):
             return []
 
-        results = self.client.query(
+        return self._chunked_query(
             collection_name=self.settings.entities_collection,
-            filter=self._compose_filter(self._scope_filter(user_id, kb_id), self._ids_filter(entity_ids)),
-            output_fields=self._available_fields(
-                self.settings.entities_collection,
-                ["id", "name", "relation_ids", "user_id", "kb_id"],
-            ),
+            ids=entity_ids,
+            user_id=user_id,
+            kb_id=kb_id,
+            output_fields=["id", "name", "relation_ids", "user_id", "kb_id"],
         )
-        return list(results)
-
+    
     def get_relations_by_ids(self, relation_ids: Sequence[str], *, user_id: str, kb_id: str) -> list[dict[str, Any]]:
         if not relation_ids or not self.client.has_collection(self.settings.relations_collection):
             return []
 
-        results = self.client.query(
+        return self._chunked_query(
             collection_name=self.settings.relations_collection,
-            filter=self._compose_filter(self._scope_filter(user_id, kb_id), self._ids_filter(relation_ids)),
-            output_fields=self._available_fields(
-                self.settings.relations_collection,
-                [
-                    "id",
-                    "subject_id",
-                    "object_id",
-                    "relation",
-                    "passage",
-                    "passage_ids",
-                    "docment_id",
-                    "user_id",
-                    "kb_id",
-                ],
-            ),
+            ids=relation_ids,
+            user_id=user_id,
+            kb_id=kb_id,
+            output_fields=[
+                "id",
+                "subject_id",
+                "object_id",
+                "relation",
+                "passage",
+                "passage_ids",
+                "docment_id",
+                "user_id",
+                "kb_id",
+            ],
         )
-        return list(results)
 
     def get_passages_by_ids(self, passage_ids: Sequence[str], *, user_id: str, kb_id: str) -> list[dict[str, Any]]:
         if not passage_ids or not self.client.has_collection(self.settings.passages_collection):
             return []
 
-        results = self.client.query(
+        return self._chunked_query(
             collection_name=self.settings.passages_collection,
-            filter=self._compose_filter(self._scope_filter(user_id, kb_id), self._ids_filter(passage_ids)),
-            output_fields=self._available_fields(
-                self.settings.passages_collection,
-                ["id", "passage", "docment_id", "user_id", "kb_id"],
-            ),
+            ids=passage_ids,
+            user_id=user_id,
+            kb_id=kb_id,
+            output_fields=["id", "passage", "docment_id", "user_id", "kb_id"],
         )
-        return list(results)
 
     def create_demo_collections(self, *, dimension: int, drop_existing: bool = False) -> None:
         for collection_name in [self.settings.entities_collection, self.settings.relations_collection, self.settings.passages_collection]:

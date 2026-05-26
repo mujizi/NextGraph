@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import copy
 import hashlib
 import json
 import multiprocessing as mp
@@ -720,7 +721,12 @@ class MineruTaskManager:
 
     def get(self, task_id: str) -> ParseTask | None:
         with self._lock:
-            return self._tasks.get(task_id)
+            task = self._tasks.get(task_id)
+            if task is None:
+                return None
+            # Hand readers a stable snapshot so worker threads can keep
+            # updating nested progress structures without breaking iteration.
+            return copy.deepcopy(task)
 
     def _update_task(self, task_id: str, **kwargs: Any) -> None:
         with self._lock:

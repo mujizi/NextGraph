@@ -5,6 +5,9 @@ backend/.venv/
 backend/.env
 backend/storage/database_build_manifest.json
 backend/storage/mineru_output/
+backend/storage/source_text/
+backend/storage/uploads/
+
 text_file/
 __pycache__/
 .DS_Store

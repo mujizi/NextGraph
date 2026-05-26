@@ -47,3 +47,13 @@ PORT=3000 ./scripts/restart_frontend.sh
 | Chat | 待定 | 待定 | 炜希 | `backend/app/chat/pending` |
 | 搜索（复用上面搜索） | 使用搜索功能接口 | 待定 | 炜希 | `backend/app/search_reuse/api` |
 | 可视化 | 待定 | 待定 |  | `backend/app/visualization` |
+
+
+conda activate nextgraph
+cd /opt/Workspace/CRX/NextGraph
+uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 5190
+
+bash /opt/Workspace/CRX/NextGraph/scripts/start_frontend.sh
+
+
+

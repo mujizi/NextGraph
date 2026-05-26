@@ -1,0 +1,415 @@
+INFO:     Started server process [828550]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:5191 (Press CTRL+C to quit)
+INFO:     127.0.0.1:43166 - "GET /files HTTP/1.1" 200 OK
+2026-05-26 15:30:19,050 [ERROR][_log_rpc_error]: RPC error: [query], <MilvusException: (code=65535, message=invalid max query result window, (offset+limit) should be in range [1, 16384], but got 16500)>, <elapsed:2.0ms>
+Traceback:
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 404, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 451, in handler
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 342, in handler
+    raise e from e
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 305, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/grpc_handler.py", line 2163, in query
+    check_status(response.status)
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/utils.py", line 76, in check_status
+    raise MilvusException(status.code, status.reason, status.error_code)
+pymilvus.exceptions.MilvusException: <MilvusException: (code=65535, message=invalid max query result window, (offset+limit) should be in range [1, 16384], but got 16500)>
+ (decorators.py:358)
+2026-05-26 15:30:25,947 [ERROR][_log_rpc_error]: RPC error: [query], <MilvusException: (code=65535, message=fail to Query on QueryNode 1: worker(1) query failed:  => query results exceed the limit size  at /workspace/source/internal/core/src/segcore/SegmentInterface.cpp:145
+)>, <elapsed:6040.9ms>
+Traceback:
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 404, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 451, in handler
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 342, in handler
+    raise e from e
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 305, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/grpc_handler.py", line 2163, in query
+    check_status(response.status)
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/utils.py", line 76, in check_status
+    raise MilvusException(status.code, status.reason, status.error_code)
+pymilvus.exceptions.MilvusException: <MilvusException: (code=65535, message=fail to Query on QueryNode 1: worker(1) query failed:  => query results exceed the limit size  at /workspace/source/internal/core/src/segcore/SegmentInterface.cpp:145
+)>
+ (decorators.py:358)
+INFO:     127.0.0.1:43164 - "GET /database_build/catalog?milvus_db=crx_0525&user_id=admin_user HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43174 - "GET /database_build/latest?kb_id=05251 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43170 - "GET /files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43172 - "GET /database_build/library/05251/overview?milvus_db=crx_0525&user_id=admin_user HTTP/1.1" 200 OK
+2026-05-26 15:30:27,354 [ERROR][_log_rpc_error]: RPC error: [query], <MilvusException: (code=65535, message=invalid max query result window, (offset+limit) should be in range [1, 16384], but got 16500)>, <elapsed:1.9ms>
+Traceback:
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 404, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 451, in handler
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 342, in handler
+    raise e from e
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 305, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/grpc_handler.py", line 2163, in query
+    check_status(response.status)
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/utils.py", line 76, in check_status
+    raise MilvusException(status.code, status.reason, status.error_code)
+pymilvus.exceptions.MilvusException: <MilvusException: (code=65535, message=invalid max query result window, (offset+limit) should be in range [1, 16384], but got 16500)>
+ (decorators.py:358)
+2026-05-26 15:30:34,271 [ERROR][_log_rpc_error]: RPC error: [query], <MilvusException: (code=65535, message=fail to Query on QueryNode 1: worker(1) query failed:  => query results exceed the limit size  at /workspace/source/internal/core/src/segcore/SegmentInterface.cpp:145
+)>, <elapsed:6045.3ms>
+Traceback:
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 404, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 451, in handler
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 342, in handler
+    raise e from e
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 305, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/grpc_handler.py", line 2163, in query
+    check_status(response.status)
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/utils.py", line 76, in check_status
+    raise MilvusException(status.code, status.reason, status.error_code)
+pymilvus.exceptions.MilvusException: <MilvusException: (code=65535, message=fail to Query on QueryNode 1: worker(1) query failed:  => query results exceed the limit size  at /workspace/source/internal/core/src/segcore/SegmentInterface.cpp:145
+)>
+ (decorators.py:358)
+INFO:     127.0.0.1:43168 - "GET /database_build/catalog?milvus_db=crx_0525&user_id=admin_user HTTP/1.1" 200 OK
+DEBUG: Search request for query: '在《叙事学》中，‘叙事性’（Narrativity）的强弱受到哪些因素的影响？' in kb: '05251'
+DEBUG: Extracted entities: ['叙事学', '叙事性', 'Narrativity']
+DEBUG: Entity search for '叙事学' found 10 rows.
+DEBUG: Entity search for '叙事性' found 10 rows.
+DEBUG: Entity search for 'Narrativity' found 10 rows.
+DEBUG: Aggregated 28 rows, 10 after threshold.
+DEBUG: Extracted entities: ['叙事学', '叙事性', 'Narrativity']
+DEBUG: Entity search for '叙事学' found 10 rows.
+DEBUG: Entity search for '叙事性' found 10 rows.
+DEBUG: Entity search for 'Narrativity' found 10 rows.
+DEBUG: Aggregated 28 rows, 10 after threshold.
+DEBUG: Search finished. Results: 12, Entity hits: 10
+INFO:     127.0.0.1:43178 - "POST /api/search/trace HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43180 - "POST /api/search/entity-neighborhood HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43182 - "POST /api/search/entity-neighborhood HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43184 - "POST /api/search/entity-neighborhood HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43188 - "GET /files HTTP/1.1" 200 OK
+2026-05-26 15:33:55,646 [ERROR][_log_rpc_error]: RPC error: [query], <MilvusException: (code=65535, message=invalid max query result window, (offset+limit) should be in range [1, 16384], but got 16500)>, <elapsed:1.4ms>
+Traceback:
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 404, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 451, in handler
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 342, in handler
+    raise e from e
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 305, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/grpc_handler.py", line 2163, in query
+    check_status(response.status)
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/utils.py", line 76, in check_status
+    raise MilvusException(status.code, status.reason, status.error_code)
+pymilvus.exceptions.MilvusException: <MilvusException: (code=65535, message=invalid max query result window, (offset+limit) should be in range [1, 16384], but got 16500)>
+ (decorators.py:358)
+INFO:     127.0.0.1:43194 - "GET /files HTTP/1.1" 200 OK
+2026-05-26 15:34:02,734 [ERROR][_log_rpc_error]: RPC error: [query], <MilvusException: (code=65535, message=fail to Query on QueryNode 1: worker(1) query failed:  => query results exceed the limit size  at /workspace/source/internal/core/src/segcore/SegmentInterface.cpp:145
+)>, <elapsed:6048.4ms>
+Traceback:
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 404, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 451, in handler
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 342, in handler
+    raise e from e
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 305, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/grpc_handler.py", line 2163, in query
+    check_status(response.status)
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/utils.py", line 76, in check_status
+    raise MilvusException(status.code, status.reason, status.error_code)
+pymilvus.exceptions.MilvusException: <MilvusException: (code=65535, message=fail to Query on QueryNode 1: worker(1) query failed:  => query results exceed the limit size  at /workspace/source/internal/core/src/segcore/SegmentInterface.cpp:145
+)>
+ (decorators.py:358)
+INFO:     127.0.0.1:43190 - "GET /database_build/catalog?milvus_db=crx_0525&user_id=admin_user HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43200 - "GET /database_build/latest?kb_id=05251 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43198 - "GET /files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43202 - "GET /database_build/library/05251/overview?milvus_db=crx_0525&user_id=admin_user HTTP/1.1" 200 OK
+2026-05-26 15:34:04,106 [ERROR][_log_rpc_error]: RPC error: [query], <MilvusException: (code=65535, message=invalid max query result window, (offset+limit) should be in range [1, 16384], but got 16500)>, <elapsed:1.6ms>
+Traceback:
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 404, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 451, in handler
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 342, in handler
+    raise e from e
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 305, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/grpc_handler.py", line 2163, in query
+    check_status(response.status)
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/utils.py", line 76, in check_status
+    raise MilvusException(status.code, status.reason, status.error_code)
+pymilvus.exceptions.MilvusException: <MilvusException: (code=65535, message=invalid max query result window, (offset+limit) should be in range [1, 16384], but got 16500)>
+ (decorators.py:358)
+2026-05-26 15:34:11,010 [ERROR][_log_rpc_error]: RPC error: [query], <MilvusException: (code=65535, message=fail to Query on QueryNode 1: worker(1) query failed:  => query results exceed the limit size  at /workspace/source/internal/core/src/segcore/SegmentInterface.cpp:145
+)>, <elapsed:6048.5ms>
+Traceback:
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 404, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 451, in handler
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 342, in handler
+    raise e from e
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 305, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/grpc_handler.py", line 2163, in query
+    check_status(response.status)
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/utils.py", line 76, in check_status
+    raise MilvusException(status.code, status.reason, status.error_code)
+pymilvus.exceptions.MilvusException: <MilvusException: (code=65535, message=fail to Query on QueryNode 1: worker(1) query failed:  => query results exceed the limit size  at /workspace/source/internal/core/src/segcore/SegmentInterface.cpp:145
+)>
+ (decorators.py:358)
+INFO:     127.0.0.1:43196 - "GET /database_build/catalog?milvus_db=crx_0525&user_id=admin_user HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43210 - "GET /database_build/latest?kb_id=05251 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43206 - "GET /files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43208 - "GET /database_build/library/05251/overview?milvus_db=crx_0525&user_id=admin_user HTTP/1.1" 200 OK
+2026-05-26 15:34:12,375 [ERROR][_log_rpc_error]: RPC error: [query], <MilvusException: (code=65535, message=invalid max query result window, (offset+limit) should be in range [1, 16384], but got 16500)>, <elapsed:1.9ms>
+Traceback:
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 404, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 451, in handler
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 342, in handler
+    raise e from e
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 305, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/grpc_handler.py", line 2163, in query
+    check_status(response.status)
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/utils.py", line 76, in check_status
+    raise MilvusException(status.code, status.reason, status.error_code)
+pymilvus.exceptions.MilvusException: <MilvusException: (code=65535, message=invalid max query result window, (offset+limit) should be in range [1, 16384], but got 16500)>
+ (decorators.py:358)
+2026-05-26 15:34:19,288 [ERROR][_log_rpc_error]: RPC error: [query], <MilvusException: (code=65535, message=fail to Query on QueryNode 1: worker(1) query failed:  => query results exceed the limit size  at /workspace/source/internal/core/src/segcore/SegmentInterface.cpp:145
+)>, <elapsed:6050.3ms>
+Traceback:
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 404, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 451, in handler
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 342, in handler
+    raise e from e
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 305, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/grpc_handler.py", line 2163, in query
+    check_status(response.status)
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/utils.py", line 76, in check_status
+    raise MilvusException(status.code, status.reason, status.error_code)
+pymilvus.exceptions.MilvusException: <MilvusException: (code=65535, message=fail to Query on QueryNode 1: worker(1) query failed:  => query results exceed the limit size  at /workspace/source/internal/core/src/segcore/SegmentInterface.cpp:145
+)>
+ (decorators.py:358)
+INFO:     127.0.0.1:43204 - "GET /database_build/catalog?milvus_db=crx_0525&user_id=admin_user HTTP/1.1" 200 OK
+2026-05-26 15:34:20,591 [ERROR][_log_rpc_error]: RPC error: [query], <MilvusException: (code=65535, message=invalid max query result window, (offset+limit) should be in range [1, 16384], but got 16500)>, <elapsed:1.6ms>
+Traceback:
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 404, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 451, in handler
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 342, in handler
+    raise e from e
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 305, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/grpc_handler.py", line 2163, in query
+    check_status(response.status)
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/utils.py", line 76, in check_status
+    raise MilvusException(status.code, status.reason, status.error_code)
+pymilvus.exceptions.MilvusException: <MilvusException: (code=65535, message=invalid max query result window, (offset+limit) should be in range [1, 16384], but got 16500)>
+ (decorators.py:358)
+2026-05-26 15:34:27,473 [ERROR][_log_rpc_error]: RPC error: [query], <MilvusException: (code=65535, message=fail to Query on QueryNode 1: worker(1) query failed:  => query results exceed the limit size  at /workspace/source/internal/core/src/segcore/SegmentInterface.cpp:145
+)>, <elapsed:6046.6ms>
+Traceback:
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 404, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 451, in handler
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 342, in handler
+    raise e from e
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 305, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/grpc_handler.py", line 2163, in query
+    check_status(response.status)
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/utils.py", line 76, in check_status
+    raise MilvusException(status.code, status.reason, status.error_code)
+pymilvus.exceptions.MilvusException: <MilvusException: (code=65535, message=fail to Query on QueryNode 1: worker(1) query failed:  => query results exceed the limit size  at /workspace/source/internal/core/src/segcore/SegmentInterface.cpp:145
+)>
+ (decorators.py:358)
+INFO:     127.0.0.1:43212 - "GET /database_build/catalog?milvus_db=crx_0525&user_id=admin_user HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43216 - "GET /files HTTP/1.1" 200 OK
+2026-05-26 15:34:59,080 [ERROR][_log_rpc_error]: RPC error: [query], <MilvusException: (code=65535, message=invalid max query result window, (offset+limit) should be in range [1, 16384], but got 16500)>, <elapsed:1.9ms>
+Traceback:
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 404, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 451, in handler
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 342, in handler
+    raise e from e
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 305, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/grpc_handler.py", line 2163, in query
+    check_status(response.status)
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/utils.py", line 76, in check_status
+    raise MilvusException(status.code, status.reason, status.error_code)
+pymilvus.exceptions.MilvusException: <MilvusException: (code=65535, message=invalid max query result window, (offset+limit) should be in range [1, 16384], but got 16500)>
+ (decorators.py:358)
+2026-05-26 15:35:06,037 [ERROR][_log_rpc_error]: RPC error: [query], <MilvusException: (code=65535, message=fail to Query on QueryNode 1: worker(1) query failed:  => query results exceed the limit size  at /workspace/source/internal/core/src/segcore/SegmentInterface.cpp:145
+)>, <elapsed:6045.7ms>
+Traceback:
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 404, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 451, in handler
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 342, in handler
+    raise e from e
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 305, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/grpc_handler.py", line 2163, in query
+    check_status(response.status)
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/utils.py", line 76, in check_status
+    raise MilvusException(status.code, status.reason, status.error_code)
+pymilvus.exceptions.MilvusException: <MilvusException: (code=65535, message=fail to Query on QueryNode 1: worker(1) query failed:  => query results exceed the limit size  at /workspace/source/internal/core/src/segcore/SegmentInterface.cpp:145
+)>
+ (decorators.py:358)
+INFO:     127.0.0.1:43214 - "GET /database_build/catalog?milvus_db=crx_0525&user_id=admin_user HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43220 - "GET /database_build/latest?kb_id=05251 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43218 - "GET /files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43224 - "GET /database_build/library/05251/overview?milvus_db=crx_0525&user_id=admin_user HTTP/1.1" 200 OK
+2026-05-26 15:35:07,351 [ERROR][_log_rpc_error]: RPC error: [query], <MilvusException: (code=65535, message=invalid max query result window, (offset+limit) should be in range [1, 16384], but got 16500)>, <elapsed:1.9ms>
+Traceback:
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 404, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 451, in handler
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 342, in handler
+    raise e from e
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 305, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/grpc_handler.py", line 2163, in query
+    check_status(response.status)
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/utils.py", line 76, in check_status
+    raise MilvusException(status.code, status.reason, status.error_code)
+pymilvus.exceptions.MilvusException: <MilvusException: (code=65535, message=invalid max query result window, (offset+limit) should be in range [1, 16384], but got 16500)>
+ (decorators.py:358)
+2026-05-26 15:35:14,257 [ERROR][_log_rpc_error]: RPC error: [query], <MilvusException: (code=65535, message=fail to Query on QueryNode 1: worker(1) query failed:  => query results exceed the limit size  at /workspace/source/internal/core/src/segcore/SegmentInterface.cpp:145
+)>, <elapsed:6049.6ms>
+Traceback:
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 404, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 451, in handler
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 342, in handler
+    raise e from e
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/decorators.py", line 305, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/grpc_handler.py", line 2163, in query
+    check_status(response.status)
+  File "/opt/miniconda3/envs/nextgraph/lib/python3.11/site-packages/pymilvus/client/utils.py", line 76, in check_status
+    raise MilvusException(status.code, status.reason, status.error_code)
+pymilvus.exceptions.MilvusException: <MilvusException: (code=65535, message=fail to Query on QueryNode 1: worker(1) query failed:  => query results exceed the limit size  at /workspace/source/internal/core/src/segcore/SegmentInterface.cpp:145
+)>
+ (decorators.py:358)
+INFO:     127.0.0.1:43222 - "GET /database_build/catalog?milvus_db=crx_0525&user_id=admin_user HTTP/1.1" 200 OK
+DEBUG: Search request for query: '在《叙事学》中，‘叙事性’（Narrativity）的强弱受到哪些因素的影响？' in kb: '05251'
+DEBUG: Extracted entities: ['叙事学', '叙事性', 'Narrativity']
+DEBUG: Entity search for '叙事学' found 10 rows.
+DEBUG: Entity search for '叙事性' found 10 rows.
+DEBUG: Entity search for 'Narrativity' found 10 rows.
+DEBUG: Aggregated 28 rows, 10 after threshold.
+DEBUG: Extracted entities: ['《叙事学》', '叙事性', 'Narrativity']
+DEBUG: Entity search for '《叙事学》' found 10 rows.
+DEBUG: Entity search for '叙事性' found 10 rows.
+DEBUG: Entity search for 'Narrativity' found 10 rows.
+DEBUG: Aggregated 30 rows, 10 after threshold.
+DEBUG: Search finished. Results: 12, Entity hits: 10
+INFO:     127.0.0.1:43226 - "POST /api/search/trace HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43228 - "POST /api/search/entity-neighborhood HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43230 - "POST /api/search/entity-neighborhood HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43234 - "POST /api/search/entity-neighborhood HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43238 - "POST /api/search/entity-neighborhood HTTP/1.1" 200 OK
+DEBUG: Search request for query: '人物小传怎么设计
+' in kb: '05251'
+DEBUG: Extracted entities: ['人物小传']
+DEBUG: Entity search for '人物小传' found 10 rows.
+DEBUG: Aggregated 10 rows, 10 after threshold.
+DEBUG: Extracted entities: ['人物小传']
+DEBUG: Entity search for '人物小传' found 10 rows.
+DEBUG: Aggregated 10 rows, 10 after threshold.
+DEBUG: Search finished. Results: 12, Entity hits: 10
+INFO:     127.0.0.1:43240 - "POST /api/search/trace HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43242 - "POST /api/search/entity-neighborhood HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43244 - "POST /api/search/entity-neighborhood HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43248 - "POST /api/search/entity-neighborhood HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43246 - "POST /api/search/entity-neighborhood HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43250 - "POST /api/search/entity-neighborhood HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43252 - "POST /api/search/entity-neighborhood HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43254 - "POST /api/search/entity-neighborhood HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43256 - "POST /api/search/entity-neighborhood HTTP/1.1" 200 OK

@@ -10,6 +10,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Runtime settings for NextGraph search services."""
 
+    backend_host: str = Field(default="0.0.0.0", description="Backend bind host.")
+    backend_port: int = Field(default=5190, ge=1, le=65535, description="Backend bind port.")
+
     milvus_uri: str = Field(default="http://10.1.80.16:19530", description="Milvus HTTP endpoint.")
     milvus_db: str = Field(default="crx", description="Milvus database name.")
     milvus_token: Optional[str] = Field(default=None, description="Optional Milvus auth token.")
@@ -69,7 +72,7 @@ class Settings(BaseSettings):
     default_top_k: int = Field(default=10, ge=1, le=100)
     default_entity_top_k: int = Field(default=8, ge=1, le=100)
     default_relation_top_k: int = Field(default=8, ge=1, le=100)
-    default_expansion_degree: int = Field(default=1, ge=0, le=4)
+    default_expansion_degree: int = Field(default=2, ge=0, le=4)
     relation_number_threshold: int = Field(default=1000, ge=1)
     entity_score_threshold: float = Field(default=0.2, ge=-1.0, le=1.0)
     relation_score_threshold: float = Field(default=0.3, ge=-1.0, le=1.0)

@@ -1,0 +1,25 @@
+
+> nextgraph-frontend@0.1.0 dev
+> vite --host 0.0.0.0 --port 5173
+
+
+  VITE v7.3.2  ready in 2927 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: http://10.1.80.12:5173/
+  ➜  Network: http://172.17.0.1:5173/
+  ➜  Network: http://172.18.0.1:5173/
+11:41:37 AM [vite] ../.env changed, restarting server...
+11:41:37 AM [vite] server restarted.
+11:41:39 AM [vite] ../.env changed, restarting server...
+11:41:39 AM [vite] server restarted.
+11:47:50 AM [vite] ../.env changed, restarting server...
+11:47:50 AM [vite] server restarted.
+12:03:13 PM [vite] ../.env changed, restarting server...
+12:03:13 PM [vite] server restarted.
+5:20:19 PM [vite] ../.env changed, restarting server...
+5:20:19 PM [vite] server restarted.
+6:37:35 PM [vite] ../.env changed, restarting server...
+6:37:35 PM [vite] server restarted.
+10:54:48 AM [vite] ../.env changed, restarting server...
+10:54:49 AM [vite] server restarted.

@@ -2,9 +2,10 @@ import json
 import asyncio
 import os
 import logging
+import re
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 import uuid
 import time
@@ -38,7 +39,9 @@ class VectorizationRequest(BaseModel):
     kb_id: str
     docment_id: str
     json_path: str
-    max_concurrency: int = 10
+    max_concurrency: Optional[int] = Field(default=None, ge=1, le=128)
+    extract_concurrency: int = Field(default=10, ge=1, le=128)
+    embedding_concurrency: int = Field(default=10, ge=1, le=128)
     max_chunk_chars: int = 1500
     chunk_overlap_chars: int = 150
     embedding_model: str = "text-embedding-3-small"
@@ -52,6 +55,42 @@ def generate_relation_id(kb_id: str, subj: str, rel: str, obj: str) -> str:
     """使用 知识库ID + 三元组内容 生成唯一 Hash ID"""
     unique_string = f"{kb_id}_{subj}_{rel}_{obj}"
     return "r_" + hashlib.md5(unique_string.encode('utf-8')).hexdigest()[:16]
+
+
+def _truncate_utf8(text: str, max_bytes: int) -> str:
+    raw = (text or "").encode("utf-8")
+    if len(raw) <= max_bytes:
+        return text or ""
+    truncated = raw[:max_bytes]
+    while truncated:
+        try:
+            return truncated.decode("utf-8").strip()
+        except UnicodeDecodeError:
+            truncated = truncated[:-1]
+    return ""
+
+
+def _normalize_entity_text(text: str, *, max_bytes: int) -> str:
+    normalized = re.sub(r"\s+", " ", (text or "").strip())
+    normalized = normalized.strip(" \t\r\n,，。；;：:、!！?？()（）[]【】\"'“”‘’")
+    if not normalized:
+        return ""
+
+    # Drop obvious sentence-like entities before truncation.
+    banned_markers = ["因为", "如果", "当", "请勿", "否则", "导致", "用于", "可以", "需要"]
+    if any(marker in normalized for marker in banned_markers) and len(normalized) > 32:
+        return ""
+
+    if len(normalized.split()) > 8:
+        return ""
+
+    return _truncate_utf8(normalized, max_bytes)
+
+
+def _normalize_relation_text(text: str, *, max_bytes: int) -> str:
+    normalized = re.sub(r"\s+", " ", (text or "").strip())
+    normalized = normalized.strip(" \t\r\n,，。；;：:、!！?？()（）[]【】\"'“”‘’")
+    return _truncate_utf8(normalized, max_bytes)
 
 def merge_json_items(items: List[Dict], max_chars: int, overlap_chars: int = 0) -> List[str]:
     """将碎片化的 JSON items 合并，并切分超长块以避免 embedding 上下文超限。"""
@@ -97,16 +136,19 @@ def merge_json_items(items: List[Dict], max_chars: int, overlap_chars: int = 0) 
     if current_chunk: merged_chunks.append(current_chunk)
     return merged_chunks
 
-async def _get_embedding_with_retry(text: str, model: str, retries: int = 3) -> List[float]:
+async def _get_embedding_with_retry(text: str, model: str, retries: int = 3, timeout_seconds: float = 60.0) -> List[float]:
     """带重试机制的向量获取"""
     if not text or not text.strip():
         return []
     
     for i in range(retries):
         try:
-            res = await azure_aclient.embeddings.create(
-                input=text.replace("\n", " "), 
-                model=model
+            res = await asyncio.wait_for(
+                azure_aclient.embeddings.create(
+                    input=text.replace("\n", " "),
+                    model=model,
+                ),
+                timeout=timeout_seconds,
             )
             return res.data[0].embedding
         except Exception as e:
@@ -134,6 +176,9 @@ async def process_vectorization_task(task_id: str, request: VectorizationRequest
             update_task_status(task_id, "error", f"找不到文件: {request.json_path}")
             return
 
+        extract_concurrency = request.max_concurrency or request.extract_concurrency
+        embedding_concurrency = request.max_concurrency or request.embedding_concurrency
+
         # 1. 加载与合并
         update_task_status(task_id, "loading", "正在加载并合并文件...", 0.1)
         with open(request.json_path, 'r', encoding='utf-8') as f:
@@ -149,7 +194,7 @@ async def process_vectorization_task(task_id: str, request: VectorizationRequest
 
         # 2. 三元组抽取
         extracted_data = []
-        sem = asyncio.Semaphore(request.max_concurrency)
+        sem = asyncio.Semaphore(extract_concurrency)
         
         async def wrapped_extract(idx, chunk):
             async with sem:
@@ -171,52 +216,98 @@ async def process_vectorization_task(task_id: str, request: VectorizationRequest
             update_task_status(task_id, "extracting", msg, progress)
 
         # 3. 数据对齐
-        update_task_status(task_id, "aligning", "正在对齐 ID...", 0.55)
-        passages_payload, entities_map, relations_payload = [], {}, []
+        update_task_status(task_id, "aligning", "正在对齐 ID并合并存量数据...", 0.55)
+        passages_payload, entities_map = [], {}
+        relations_map: Dict[str, Dict[str, Any]] = {}
 
-        # 定义字段长度上限 (与 Milvus Schema 保持一致)
+        # 定义字段长度上限 (与 Milvus Schema 保持一致，按 UTF-8 字节安全截断)
         MAX_PASSAGE_LEN = 16000
         MAX_NAME_LEN = 500
         MAX_RELATION_LEN = 1000
 
+        # 首先收集所有本次提取到的实体名称，准备批量查询
+        all_entity_names = set()
+        for item in extracted_data:
+            for trip in item["triplets"]:
+                subject_name = _normalize_entity_text(trip.get("subject", ""), max_bytes=MAX_NAME_LEN)
+                object_name = _normalize_entity_text(trip.get("object", ""), max_bytes=MAX_NAME_LEN)
+                if subject_name:
+                    all_entity_names.add(subject_name)
+                if object_name:
+                    all_entity_names.add(object_name)
+        
+        # 预先生成所有实体 ID 并查询 Milvus
+        entity_name_to_id = {name: generate_entity_id(request.kb_id, name) for name in all_entity_names}
+        existing_entities = milvus_client.get_entities_by_ids(request.kb_id, list(entity_name_to_id.values()))
+
         for idx, item in enumerate(extracted_data):
-            c_id = f"{request.kb_id}_{request.docment_id}_c{str(idx+1).zfill(4)}"
+            c_id = f"{request.docment_id}_c{str(idx+1).zfill(4)}"
             chunk_text = item["chunk_text"][:MAX_PASSAGE_LEN]
             
             passages_payload.append({
                 "user_id": request.user_id, "kb_id": request.kb_id, "id": c_id,
-                "passage": chunk_text, "docment_id": request.docment_id, "embedding": []
+                "passage": _truncate_utf8(chunk_text, MAX_PASSAGE_LEN), "docment_id": request.docment_id, "embedding": []
             })
             
             for trip in item["triplets"]:
                 subj, rel, obj = trip["subject"], trip["relation"], trip["object"]
                 if not subj or not obj: continue
-                subj, rel, obj = subj[:MAX_NAME_LEN], rel[:MAX_RELATION_LEN], obj[:MAX_NAME_LEN]
+                subj = _normalize_entity_text(subj, max_bytes=MAX_NAME_LEN)
+                obj = _normalize_entity_text(obj, max_bytes=MAX_NAME_LEN)
+                rel = _normalize_relation_text(rel, max_bytes=MAX_RELATION_LEN)
+                if not subj or not obj or not rel:
+                    logger.info("跳过异常三元组: subject=%r relation=%r object=%r", trip.get("subject", "")[:80], trip.get("relation", "")[:80], trip.get("object", "")[:80])
+                    continue
                 
                 for name in [subj, obj]:
+                    ent_id = entity_name_to_id[name]
                     if name not in entities_map:
-                        ent_id = generate_entity_id(request.kb_id, name)
-                        entities_map[name] = {"id": ent_id, "name": name, "relation_ids": set(), "embedding": []}
+                        # 核心修复：如果数据库里已有该实体，继承其原有的关系 ID 和 向量
+                        existing = existing_entities.get(ent_id)
+                        entities_map[name] = {
+                            "id": ent_id, 
+                            "name": name, 
+                            "relation_ids": set(existing["relation_ids"]) if existing else set(), 
+                            "embedding": existing["embedding"] if existing else []
+                        }
                 
                 r_id = generate_relation_id(request.kb_id, subj, rel, obj)
-                relations_payload.append({
-                    "user_id": request.user_id, "kb_id": request.kb_id, "id": r_id,
-                    "subject_id": entities_map[subj]["id"], "object_id": entities_map[obj]["id"],
-                    "relation": rel, "passage": chunk_text, "passage_ids": [c_id], "embedding": []
-                })
+                existing_relation = relations_map.get(r_id)
+                if existing_relation is None:
+                    relations_map[r_id] = {
+                        "user_id": request.user_id,
+                        "kb_id": request.kb_id,
+                        "id": r_id,
+                        "subject_id": entity_name_to_id[subj],
+                        "object_id": entity_name_to_id[obj],
+                        "relation": rel,
+                        "passage": chunk_text,
+                        "passage_ids": [c_id],
+                        "embedding": [],
+                    }
+                else:
+                    if c_id not in existing_relation["passage_ids"]:
+                        existing_relation["passage_ids"].append(c_id)
+                    # Keep the longest supporting passage as the representative text.
+                    if len(chunk_text) > len(existing_relation.get("passage", "")):
+                        existing_relation["passage"] = chunk_text
                 entities_map[subj]["relation_ids"].add(r_id)
                 entities_map[obj]["relation_ids"].add(r_id)
 
+        relations_payload = list(relations_map.values())
         entities_payload = list(entities_map.values())
         for e in entities_payload:
             e["relation_ids"] = list(e["relation_ids"])
             e.update({"user_id": request.user_id, "kb_id": request.kb_id})
 
         # 4. 向量化
-        update_task_status(task_id, "vectorizing", "开始计算向量...", 0.6)
-        v_sem = asyncio.Semaphore(request.max_concurrency)
+        update_task_status(task_id, "vectorizing", "开始计算增量向量...", 0.6)
+        v_sem = asyncio.Semaphore(embedding_concurrency)
         
         async def wrapped_embed(target: dict, text_key: str):
+            # 如果已有向量（从数据库查出来的），则跳过 embedding
+            if target.get("embedding"):
+                return
             async with v_sem:
                 target["embedding"] = await _get_embedding_with_retry(target[text_key], request.embedding_model)
 
@@ -238,7 +329,15 @@ async def process_vectorization_task(task_id: str, request: VectorizationRequest
         update_task_status(task_id, "storing", "正在写入数据库...", 0.95)
         valid_passages = [p for p in passages_payload if p["embedding"]]
         valid_entities = [e for e in entities_payload if e["embedding"]]
-        valid_relations = [r for r in relations_payload if r["embedding"]]
+        valid_entity_ids = {entity["id"] for entity in valid_entities}
+        valid_relations = [
+            relation
+            for relation in relations_payload
+            if relation["embedding"]
+            and relation.get("subject_id") in valid_entity_ids
+            and relation.get("object_id") in valid_entity_ids
+        ]
+        dropped_relations = len(relations_payload) - len(valid_relations)
 
         if not valid_passages:
             update_task_status(
@@ -259,7 +358,8 @@ async def process_vectorization_task(task_id: str, request: VectorizationRequest
             "chunks": total_chunks,
             "entities": len(valid_entities),
             "relations": len(valid_relations),
-            "failed_embeddings": total_v - (len(valid_passages) + len(valid_entities) + len(valid_relations))
+            "failed_embeddings": total_v - (len(valid_passages) + len(valid_entities) + len(valid_relations)),
+            "dropped_relations": dropped_relations,
         }
         update_task_status(task_id, "completed", "处理成功", 1.0, summary)
 

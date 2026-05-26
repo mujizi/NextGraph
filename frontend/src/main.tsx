@@ -1,56 +1,120 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
+import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation } from "d3-force-3d";
+import ForceGraph2D from "react-force-graph-2d";
+import ForceGraph3D from "react-force-graph-3d";
+import SpriteText from "three-spritetext";
 import {
-  ArrowLeft,
   Bot,
-  BookOpen,
-  Check,
-  CircleCheck,
-  Clock,
+  BrainCircuit,
+  Cpu,
   Database,
-  Edit3,
-  FileText,
-  Filter,
-  FolderOpen,
   FolderUp,
-  House,
-  Link2,
-  MessageCircle,
-  MoreHorizontal,
+  MessageSquareShare,
   Network,
-  Paperclip,
-  Plus,
-  Play,
   RefreshCw,
+  RotateCcw,
   Search,
   Send,
-  SlidersHorizontal,
   Sparkles,
-  Trash2,
   Upload,
-  X,
+  Zap,
 } from "lucide-react";
 import appLogo from "./assets/app-logo.png";
 import "./styles.css";
 
-type Page = "home" | "knowledge" | "chat" | "search";
-type Status = "已解析" | "待解析" | "部分失败";
-type BuildStatus = "idle" | "uploading" | "building" | "completed" | "failed";
+type ModuleKey = "overview" | "builder" | "query";
 
-type KnowledgeBase = {
-  id: string;
-  name: string;
-  date: string;
-  owner: string;
-  files: number;
-  status: Status;
-  tone: "green" | "blue" | "purple" | "amber";
+type FileSummary = {
+  chunks?: number;
+  entities?: number;
+  relations?: number;
+  failed_embeddings?: number;
 };
 
-type ChatItem = {
+type SourceDocument = {
+  name: string;
+  path: string;
+  stage: string;
+  state: string;
+  progress: number;
+  parse_progress: number;
+  vector_progress: number;
+  summary?: FileSummary;
+};
+
+type LibraryPreview = {
+  counts: {
+    entities: number;
+    relations: number;
+    passages: number;
+  };
+  top_entities: Array<{
+    id: string;
+    name: string;
+    relation_count: number;
+  }>;
+  samples: {
+    entities: Array<Record<string, unknown>>;
+    relations: Array<Record<string, unknown>>;
+    passages: Array<Record<string, unknown>>;
+  };
+  graph_preview: {
+    nodes: GraphNode[];
+    links: GraphLink[];
+  };
+};
+
+type LibraryRecord = {
+  kb_id: string;
+  user_id: string;
+  milvus_db: string;
+  latest_task_id: string;
+  latest_status: string;
+  latest_stage: string;
+  latest_message: string;
+  updated_at: number;
+  task_count: number;
+  file_count: number;
+  completed: number;
+  failed: number;
+  chunk_count: number;
+  entity_count: number;
+  relation_count: number;
+  passage_count: number;
+  completion_ratio: number;
+  source_documents: SourceDocument[];
+  live_preview?: LibraryPreview;
+  live_preview_error?: string;
+};
+
+type LibraryOverview = {
+  kb_id: string;
+  user_id: string;
+  milvus_db: string;
+  latest_task: DatabaseBuildProgress;
+  summary: {
+    file_count: number;
+    completed: number;
+    failed: number;
+    chunk_count: number;
+    entity_count: number;
+    relation_count: number;
+    failed_embeddings: number;
+    completion_ratio: number;
+    source_documents: SourceDocument[];
+  };
+  milvus_preview: LibraryPreview | null;
+  milvus_error: string | null;
+};
+
+type UploadedFile = {
   id: string;
-  title: string;
-  knowledgeId: string;
+  name: string;
+  path: string;
+  size: number;
+  uploaded_at: number;
+  extension: string;
 };
 
 type UploadedDocument = {
@@ -60,30 +124,18 @@ type UploadedDocument = {
   type: string;
   uploadedAt: string;
   size: string;
-  parser: string;
   selected: boolean;
-  progress: number;
-  state: string;
 };
 
-type BuildParams = {
-  kbId: string;
-  userId: string;
-  milvusDb: string;
-  outputRoot: string;
-  gpus: string;
-  workersPerGpu: number;
-  method: "auto" | "txt" | "ocr";
-  backend: string;
-  lang: string;
-  startPage: string;
-  endPage: string;
-  formula: boolean;
-  table: boolean;
-  vectorConcurrency: number;
-  maxChunkChars: number;
-  chunkOverlapChars: number;
-  embeddingModel: string;
+type BuildFileProgress = {
+  path: string;
+  name: string;
+  stage: string;
+  state: string;
+  progress: number;
+  parse_progress: number;
+  vector_progress: number;
+  summary?: FileSummary;
 };
 
 type DatabaseBuildProgress = {
@@ -91,120 +143,171 @@ type DatabaseBuildProgress = {
   status: string;
   stage: string;
   message: string;
-  milvus_db?: string;
+  kb_id: string;
+  milvus_db: string;
   progress_percent: number;
-  files: Array<{
-    path: string;
-    stage: string;
-    state: string;
-    progress: number;
-    summary?: {
-      chunks?: number;
-      entities?: number;
-      relations?: number;
-      failed_embeddings?: number;
+  files: BuildFileProgress[];
+};
+
+type SearchResponse = {
+  mode: string;
+  query: string;
+  user_id: string;
+  kb_id: string;
+  results: RelationResult[];
+  grounded_passages: GroundedPassage[];
+};
+
+type RelationResult = {
+  id: string;
+  subject_id: string;
+  subject_name: string;
+  object_id: string;
+  object_name: string;
+  relation: string;
+  passage: string;
+  docment_id?: string;
+  score: number;
+  source_modes: string[];
+  matched_entity_ids: string[];
+};
+
+type GroundedPassage = {
+  id: string;
+  passage: string;
+  docment_id?: string;
+  score: number;
+  matched_relation_ids?: string[];
+};
+
+type GraphNode = {
+  id: string;
+  label?: string;
+  name?: string;
+  kind?: string;
+  is_seed?: boolean;
+  color?: string;
+};
+
+type GraphLink = {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+  matched_entity_ids?: string[];
+  color?: string;
+};
+
+type GraphDensityMode = "focus" | "balanced" | "panorama";
+
+type PreparedGraphNode = GraphNode & {
+  degree: number;
+  displayLabel: string;
+  emphasis: number;
+  val: number;
+};
+
+type PreparedGraphLink = GraphLink & {
+  source: string;
+  target: string;
+  emphasis: number;
+};
+
+type TopologyNodeType = "domain" | "concept" | "tech" | "person" | "org" | "event";
+
+type TopologyNode = PreparedGraphNode & {
+  topologyType: TopologyNodeType;
+  fill: string;
+  glow: string;
+  border: string;
+};
+
+type TopologyLink = PreparedGraphLink & {
+  stroke: string;
+  textStroke: string;
+};
+
+type SimulatedTopologyNode = TopologyNode & {
+  x: number;
+  y: number;
+  vx?: number;
+  vy?: number;
+  fx?: number | null;
+  fy?: number | null;
+};
+
+type SimulatedTopologyLink = {
+  id: string;
+  source: SimulatedTopologyNode;
+  target: SimulatedTopologyNode;
+  label: string;
+  stroke: string;
+  textStroke: string;
+};
+
+type GraphCanvasHandle = {
+  zoomIn: () => void;
+  zoomOut: () => void;
+  resetView: () => void;
+};
+
+type QueryGraphStage = "seed" | "result";
+
+type SearchTrace = {
+  search: SearchResponse;
+  trace: {
+    mode: string;
+    steps: Array<{
+      id: string;
+      title: string;
+      summary: string;
+      highlights?: string[];
+      entity_ids?: string[];
+      history?: Array<Record<string, unknown>>;
+      passage_ids?: string[];
+    }>;
+    graph: {
+      nodes: GraphNode[];
+      links: GraphLink[];
     };
-  }>;
+    seed_graph?: {
+      nodes: GraphNode[];
+      links: GraphLink[];
+    };
+    result_graph?: {
+      nodes: GraphNode[];
+      links: GraphLink[];
+    };
+    seed_entities: Array<{
+      id: string;
+      name: string;
+      score: number;
+    }>;
+    result_relations: RelationResult[];
+    grounded_passages: GroundedPassage[];
+  };
 };
 
-type BuildFileProgress = DatabaseBuildProgress["files"][number];
-
-type BuiltLibrary = {
-  task_id: string;
-  kb_id: string;
-  user_id: string;
-  milvus_db: string;
-  status: string;
-  stage: string;
-  message: string;
-  progress_percent: number;
-  file_count: number;
-  completed: number;
-  failed: number;
-  updated_at: number;
+type EntityNeighborhoodResponse = {
+  graph: {
+    nodes: GraphNode[];
+    links: GraphLink[];
+  };
+  center_entity_id?: string | null;
 };
 
-type LibraryCollectionView = {
-  collection: string;
-  matched_count: number | null;
-  sample_count: number;
-  samples: Array<Record<string, unknown>>;
-};
+const API_ROOT = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+const DEFAULT_USER_ID = "admin_user";
+const DEFAULT_MILVUS_DB = import.meta.env.NEXTGRAPH_MILVUS_DB || "crx";
 
-type LibraryInspection = {
-  kb_id: string;
-  user_id: string;
-  milvus_db: string;
-  collections: Record<"entities" | "relations" | "passages", LibraryCollectionView>;
-};
+function apiUrl(path: string) {
+  return `${API_ROOT}${path}`;
+}
 
-const initialKnowledgeBases: KnowledgeBase[] = [
-  {
-    id: "kb-yingpu",
-    name: "影谱项目库",
-    date: "2026-04-27",
-    owner: "Mengna",
-    files: 128,
-    status: "已解析",
-    tone: "green",
-  },
-  {
-    id: "kb-script",
-    name: "电影剧本文档",
-    date: "2026-04-25",
-    owner: "Mengna",
-    files: 36,
-    status: "部分失败",
-    tone: "blue",
-  },
-];
-
-const initialChats: ChatItem[] = [
-  { id: "chat-1", title: "一个真正有力量的主角", knowledgeId: "kb-yingpu" },
-  { id: "chat-2", title: "为什么观众对电影角色共情", knowledgeId: "kb-yingpu" },
-  { id: "chat-3", title: "第一章电影剧本写作基础", knowledgeId: "kb-script" },
-];
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
-
-const initialDocuments: UploadedDocument[] = [
-  {
-    id: "sample-1",
-    type: "PDF",
-    name: "电影剧本写作基础与角色弧光.pdf",
-    path: "/opt/Workspace/CRX/NextGraph/backend/storage/samples/电影剧本写作基础与角色弧光.pdf",
-    uploadedAt: "21/04/2026 09:59:20",
-    size: "12.4 MB",
-    parser: "Book",
-    selected: true,
-    progress: 100,
-    state: "完成",
-  },
-  {
-    id: "sample-2",
-    type: "DOC",
-    name: "第一章电影剧本结构.docx",
-    path: "/opt/Workspace/CRX/NextGraph/backend/storage/samples/第一章电影剧本结构.docx",
-    uploadedAt: "21/04/2026 10:12:03",
-    size: "4.8 MB",
-    parser: "Text",
-    selected: false,
-    progress: 63,
-    state: "63%",
-  },
-  {
-    id: "sample-3",
-    type: "MD",
-    name: "角色动机与冲突设计.md",
-    path: "/opt/Workspace/CRX/NextGraph/backend/storage/samples/角色动机与冲突设计.md",
-    uploadedAt: "21/04/2026 10:40:11",
-    size: "128 KB",
-    parser: "Markdown",
-    selected: false,
-    progress: 0,
-    state: "等待中",
-  },
-];
+function formatTime(timestamp?: number) {
+  if (!timestamp) return "--";
+  return new Date(timestamp * 1000).toLocaleString("zh-CN", { hour12: false });
+}
 
 function formatUploadedAt(value: number) {
   return new Date(value * 1000).toLocaleString("zh-CN", { hour12: false });
@@ -216,1583 +319,2476 @@ function formatFileSize(size: number) {
   return `${size} B`;
 }
 
-function toUploadedDocument(file: {
-  id: string;
-  name: string;
-  path: string;
-  size: number;
-  uploaded_at: number;
-  extension: string;
-}): UploadedDocument {
-  const extension = file.extension.toUpperCase();
+function extractHighlightTerms(text: string) {
+  return Array.from(
+    new Set(
+      text
+        .split(/[\s,，。！？；：、"'“”指標()（）【】\-_/]+/)
+        .map((item) => item.trim())
+        .filter((item) => item.length >= 2),
+    ),
+  );
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function colorFromSeed(seed: string) {
+  const palette = ["#67ccff", "#ffd166", "#64f0cd", "#ff8fab", "#c4a1ff", "#ffb86b"];
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  }
+  return palette[hash % palette.length];
+}
+
+function isOpaqueEntityId(value: string) {
+  return /^e_[a-z0-9]{8,}$/i.test(value);
+}
+
+function getReadableNodeLabel(node: { label?: string; name?: string; id: string }) {
+  const raw = node.name || node.label || node.id;
+  if (!raw) return "未命名实体";
+  return raw;
+}
+
+function truncateLabel(label: string, maxLength = 12) {
+  if (label.length <= maxLength) return label;
+  return `${label.slice(0, maxLength)}...`;
+}
+
+function prepareGraphData(
+  rawNodes: GraphNode[],
+  rawLinks: GraphLink[],
+  options?: {
+    selectedRelationId?: string | null;
+    densityMode?: GraphDensityMode;
+    preferredNodeLimit?: number;
+    preferredLinkLimit?: number;
+  },
+) {
+  const degreeMap = new Map<string, number>();
+  for (const node of rawNodes) {
+    degreeMap.set(node.id, 0);
+  }
+  for (const link of rawLinks) {
+    degreeMap.set(link.source, (degreeMap.get(link.source) || 0) + 1);
+    degreeMap.set(link.target, (degreeMap.get(link.target) || 0) + 1);
+  }
+
+  const preparedNodes: PreparedGraphNode[] = rawNodes.map((node) => {
+    const degree = degreeMap.get(node.id) || 0;
+    const emphasis = (node.is_seed ? 4 : 0) + Math.min(degree, 4);
+    return {
+      ...node,
+      degree,
+      displayLabel: truncateLabel(getReadableNodeLabel(node), 12),
+      emphasis,
+      val: node.is_seed ? 12 : Math.min(10, 5 + degree * 0.8),
+    };
+  });
+
+  const nodeMap = new Map(preparedNodes.map((node) => [node.id, node]));
+  const selectedRelationId = options?.selectedRelationId ?? null;
+  const selectedLink = selectedRelationId
+    ? rawLinks.find((link) => link.id === selectedRelationId) || null
+    : null;
+  const selectedNodeIds = new Set<string>();
+  if (selectedLink) {
+    selectedNodeIds.add(selectedLink.source);
+    selectedNodeIds.add(selectedLink.target);
+  }
+
+  const preparedLinks: PreparedGraphLink[] = rawLinks.map((link) => {
+    const active = link.id === selectedRelationId;
+    const sourceDegree = degreeMap.get(link.source) || 0;
+    const targetDegree = degreeMap.get(link.target) || 0;
+    return {
+      ...link,
+      emphasis:
+        (active ? 8 : 0) +
+        (selectedNodeIds.has(link.source) || selectedNodeIds.has(link.target) ? 4 : 0) +
+        sourceDegree +
+        targetDegree,
+    };
+  });
+
+  const densityMode = options?.densityMode ?? "balanced";
+  const linkLimits: Record<GraphDensityMode, number> = {
+    focus: options?.preferredLinkLimit ?? 10,
+    balanced: options?.preferredLinkLimit ?? 18,
+    panorama: options?.preferredLinkLimit ?? 32,
+  };
+  const nodeLimits: Record<GraphDensityMode, number> = {
+    focus: options?.preferredNodeLimit ?? 14,
+    balanced: options?.preferredNodeLimit ?? 24,
+    panorama: options?.preferredNodeLimit ?? 42,
+  };
+
+  const sortedLinks = [...preparedLinks].sort((left, right) => right.emphasis - left.emphasis);
+  const visibleLinks =
+    densityMode === "panorama" ? sortedLinks : sortedLinks.slice(0, linkLimits[densityMode]);
+
+  const visibleNodeIds = new Set<string>();
+  visibleLinks.forEach((link) => {
+    visibleNodeIds.add(link.source);
+    visibleNodeIds.add(link.target);
+  });
+  preparedNodes.forEach((node) => {
+    if (node.is_seed || selectedNodeIds.has(node.id)) visibleNodeIds.add(node.id);
+  });
+
+  let visibleNodes = preparedNodes.filter((node) => visibleNodeIds.has(node.id));
+  if (visibleNodes.length > nodeLimits[densityMode]) {
+    const pinnedNodeIds = new Set(
+      visibleNodes.filter((node) => node.is_seed || selectedNodeIds.has(node.id)).map((node) => node.id),
+    );
+    const rankedVisibleNodes = [...visibleNodes].sort((left, right) => right.emphasis - left.emphasis);
+    const nextVisibleNodeIds = new Set<string>();
+    for (const node of rankedVisibleNodes) {
+      if (nextVisibleNodeIds.size >= nodeLimits[densityMode] && !pinnedNodeIds.has(node.id)) continue;
+      nextVisibleNodeIds.add(node.id);
+    }
+    visibleNodes = rankedVisibleNodes.filter((node) => nextVisibleNodeIds.has(node.id));
+  }
+
+  const finalNodeIds = new Set(visibleNodes.map((node) => node.id));
+  const finalLinks = visibleLinks.filter(
+    (link) => finalNodeIds.has(link.source) && finalNodeIds.has(link.target),
+  );
+
+  return {
+    nodes: visibleNodes.map((node) => ({
+      ...node,
+      color: selectedNodeIds.has(node.id)
+        ? "#ffcf70"
+        : node.color || (node.is_seed ? "#ffd166" : "#64f0cd"),
+    })),
+    links: finalLinks,
+    stats: {
+      totalNodes: rawNodes.length,
+      totalLinks: rawLinks.length,
+      visibleNodes: visibleNodes.length,
+      visibleLinks: finalLinks.length,
+    },
+    nodeMap,
+  };
+}
+
+function filterGraphByHops(
+  rawNodes: GraphNode[],
+  rawLinks: GraphLink[],
+  seedIds: string[],
+  maxHops = 2,
+) {
+  if (!seedIds.length) {
+    return { nodes: rawNodes, links: rawLinks };
+  }
+
+  const adjacency = new Map<string, Set<string>>();
+  rawLinks.forEach((link) => {
+    if (!adjacency.has(link.source)) adjacency.set(link.source, new Set());
+    if (!adjacency.has(link.target)) adjacency.set(link.target, new Set());
+    adjacency.get(link.source)?.add(link.target);
+    adjacency.get(link.target)?.add(link.source);
+  });
+
+  const visited = new Set<string>(seedIds);
+  let frontier = new Set<string>(seedIds);
+
+  for (let hop = 0; hop < maxHops; hop += 1) {
+    const nextFrontier = new Set<string>();
+    frontier.forEach((nodeId) => {
+      adjacency.get(nodeId)?.forEach((neighborId) => {
+        if (!visited.has(neighborId)) {
+          visited.add(neighborId);
+          nextFrontier.add(neighborId);
+        }
+      });
+    });
+    frontier = nextFrontier;
+    if (frontier.size === 0) break;
+  }
+
+  const nodes = rawNodes.filter((node) => visited.has(node.id));
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  const links = rawLinks.filter((link) => nodeIds.has(link.source) && nodeIds.has(link.target));
+  return { nodes, links };
+}
+
+function shouldRenderNodeLabel(node: PreparedGraphNode, globalScale: number) {
+  if (node.is_seed) return true;
+  if (node.emphasis >= 6) return true;
+  if (globalScale >= 1.3 && node.degree >= 2) return true;
+  return globalScale >= 2;
+}
+
+function classifyTopologyNode(node: PreparedGraphNode): TopologyNodeType {
+  const source = `${node.kind || ""} ${node.label || ""} ${node.name || ""}`.toLowerCase();
+  if (/(gpu|cpu|框架|工程|技术|模型|训练|检索|rag|prompt|llm|agent|embedding)/.test(source)) {
+    return "tech";
+  }
+  if (/(人物|person|作者|用户|工程师)/.test(source)) {
+    return "person";
+  }
+  if (/(组织|公司|团队|org|openai|meta|google|anthropic)/.test(source)) {
+    return "org";
+  }
+  if (/(事件|发布|演进|event)/.test(source)) {
+    return "event";
+  }
+  if (/(领域|domain|行业|应用|场景)/.test(source)) {
+    return "domain";
+  }
+  return "concept";
+}
+
+function topologyTypeStyle(type: TopologyNodeType) {
+  switch (type) {
+    case "tech":
+      return {
+        fill: "rgba(31, 126, 173, 0.42)",
+        glow: "rgba(44, 200, 255, 0.3)",
+        border: "rgba(73, 200, 255, 0.72)",
+      };
+    case "person":
+      return {
+        fill: "rgba(0, 157, 123, 0.34)",
+        glow: "rgba(84, 255, 188, 0.24)",
+        border: "rgba(84, 255, 188, 0.58)",
+      };
+    case "org":
+      return {
+        fill: "rgba(94, 88, 223, 0.3)",
+        glow: "rgba(133, 126, 255, 0.22)",
+        border: "rgba(139, 133, 255, 0.55)",
+      };
+    case "event":
+      return {
+        fill: "rgba(230, 103, 61, 0.28)",
+        glow: "rgba(255, 153, 107, 0.22)",
+        border: "rgba(255, 162, 118, 0.54)",
+      };
+    case "domain":
+      return {
+        fill: "rgba(34, 79, 129, 0.26)",
+        glow: "rgba(97, 147, 218, 0.18)",
+        border: "rgba(110, 161, 233, 0.44)",
+      };
+    case "concept":
+    default:
+      return {
+        fill: "rgba(66, 78, 120, 0.24)",
+        glow: "rgba(137, 153, 196, 0.16)",
+        border: "rgba(124, 141, 186, 0.36)",
+      };
+  }
+}
+
+function buildTopologyGraph(
+  graph: ReturnType<typeof prepareGraphData>,
+  selectedRelationId: string | null,
+) {
+  const nodeLinks = new Map<string, number>();
+  graph.links.forEach((link) => {
+    const sourceId = typeof link.source === "string" ? link.source : String(link.source);
+    const targetId = typeof link.target === "string" ? link.target : String(link.target);
+    nodeLinks.set(sourceId, (nodeLinks.get(sourceId) || 0) + 1);
+    nodeLinks.set(targetId, (nodeLinks.get(targetId) || 0) + 1);
+  });
+
+  const focusRelation = graph.links.find((link) => link.id === selectedRelationId) || null;
+  const focusNodeIds = new Set<string>();
+  if (focusRelation) {
+    focusNodeIds.add(String(focusRelation.source));
+    focusNodeIds.add(String(focusRelation.target));
+  }
+
+  const nodes: TopologyNode[] = graph.nodes.map((node) => {
+    const topologyType = classifyTopologyNode(node);
+    const style = topologyTypeStyle(topologyType);
+    const isFocus = focusNodeIds.has(node.id);
+    const isSeed = Boolean(node.is_seed);
+    return {
+      ...node,
+      topologyType,
+      fill: isSeed ? "rgba(34, 167, 126, 0.46)" : isFocus ? "rgba(26, 126, 156, 0.62)" : style.fill,
+      glow: isSeed ? "rgba(84, 255, 188, 0.24)" : isFocus ? "rgba(39, 215, 255, 0.34)" : style.glow,
+      border: isSeed ? "rgba(84, 255, 188, 0.68)" : isFocus ? "rgba(68, 223, 255, 0.86)" : style.border,
+      val: isSeed ? 25 : isFocus ? 20 : Math.max(13, Math.min(22, 10 + (nodeLinks.get(node.id) || 0) * 2)),
+    };
+  });
+
+  const links: TopologyLink[] = graph.links.map((link) => ({
+    ...link,
+    stroke:
+      link.id === selectedRelationId
+        ? "rgba(81, 220, 255, 0.92)"
+        : "rgba(139, 162, 203, 0.38)",
+    textStroke:
+      link.id === selectedRelationId
+        ? "rgba(31, 180, 228, 0.25)"
+        : "rgba(83, 95, 136, 0.18)",
+  }));
+
+  return {
+    nodes,
+    links,
+    stats: graph.stats,
+  };
+}
+
+function configureGraphForces(instance: any, mode: GraphDensityMode, dimensions: 2 | 3 = 2) {
+  if (!instance?.d3Force) return;
+  const chargeStrength =
+    dimensions === 3
+      ? mode === "focus"
+        ? -520
+        : mode === "balanced"
+          ? -760
+          : -980
+      : mode === "focus"
+        ? -280
+        : mode === "balanced"
+          ? -420
+          : -560;
+  const collisionRadius =
+    dimensions === 3
+      ? mode === "focus"
+        ? 32
+        : mode === "balanced"
+          ? 40
+          : 48
+      : mode === "focus"
+        ? 24
+        : mode === "balanced"
+          ? 30
+          : 36;
+
+  instance.d3Force("charge", forceManyBody().strength(chargeStrength));
+  instance.d3Force("collision", forceCollide(collisionRadius).iterations(2));
+  const linkForce = instance.d3Force("link");
+  if (linkForce?.distance) {
+    linkForce.distance((link: any) => {
+      const active = Boolean(link?.id && link.id === instance.__selectedRelationId);
+      if (dimensions === 3) {
+        return active ? 260 : mode === "focus" ? 200 : mode === "balanced" ? 250 : 310;
+      }
+      return active ? 180 : mode === "focus" ? 140 : mode === "balanced" ? 175 : 210;
+    });
+    linkForce.strength(
+      dimensions === 3
+        ? mode === "focus"
+          ? 0.08
+          : 0.06
+        : mode === "focus"
+          ? 0.18
+          : 0.12,
+    );
+  }
+  instance.d3ReheatSimulation?.();
+}
+
+function relationToSentence(relation: RelationResult) {
+  const relationText = relation.relation?.trim() || "相关";
+  return `${relation.subject_name}与${relation.object_name}的关系是“${relationText}”。`;
+}
+
+function buildGraphFromResultRelations(relations: RelationResult[]) {
+  const nodes = new Map<string, GraphNode>();
+  const links: GraphLink[] = [];
+
+  relations.forEach((relation) => {
+    nodes.set(relation.subject_id, {
+      id: relation.subject_id,
+      label: relation.subject_name,
+      kind: "entity",
+      is_seed: (relation.matched_entity_ids?.length || 0) > 0,
+    });
+    nodes.set(relation.object_id, {
+      id: relation.object_id,
+      label: relation.object_name,
+      kind: "entity",
+      is_seed: (relation.matched_entity_ids?.length || 0) > 0,
+    });
+    links.push({
+      id: relation.id,
+      source: relation.subject_id,
+      target: relation.object_id,
+      label: relation.relation,
+      matched_entity_ids: relation.matched_entity_ids,
+    });
+  });
+
+  return {
+    nodes: Array.from(nodes.values()),
+    links,
+  };
+}
+
+function getTraceGraphByStage(trace: SearchTrace, stage: QueryGraphStage) {
+  if (stage === "seed") {
+    return trace.trace.seed_graph || {
+      nodes: trace.trace.seed_entities.map((entity) => ({
+        id: entity.id,
+        label: entity.name,
+        kind: "entity",
+        is_seed: true,
+      })),
+      links: [],
+    };
+  }
+
+  const resultGraph = trace.trace.result_graph || trace.trace.graph;
+  if (resultGraph.nodes.length > 0 || resultGraph.links.length > 0) {
+    return resultGraph;
+  }
+  return buildGraphFromResultRelations(trace.trace.result_relations);
+}
+
+function buildSeedNeighborhoodGraph(
+  trace: SearchTrace,
+  maxDepth: 1 | 2 | 3,
+  maxRelations: number,
+  shuffleNonce: number,
+) {
+  const expandedGraph = trace.trace.expanded_graph;
+  const fallbackGraph = trace.trace.result_graph || trace.trace.graph;
+  const sourceGraph =
+    expandedGraph && (expandedGraph.nodes.length > 0 || expandedGraph.links.length > 0)
+      ? expandedGraph
+      : fallbackGraph;
+  const centerId = trace.trace.seed_entities[0]?.id;
+
+  if (!centerId || sourceGraph.nodes.length === 0) {
+    return trace.trace.seed_graph || { nodes: [], links: [] };
+  }
+
+  const adjacency = new Map<string, GraphLink[]>();
+  sourceGraph.links.forEach((link) => {
+    const source = String(link.source);
+    const target = String(link.target);
+    adjacency.set(source, [...(adjacency.get(source) || []), link]);
+    adjacency.set(target, [...(adjacency.get(target) || []), link]);
+  });
+
+  const visitedNodes = new Set<string>([centerId]);
+  const traversedLinkIds = new Set<string>();
+  let frontier = new Set<string>([centerId]);
+
+  for (let hop = 0; hop < maxDepth; hop += 1) {
+    const nextFrontier = new Set<string>();
+    frontier.forEach((nodeId) => {
+      (adjacency.get(nodeId) || []).forEach((link) => {
+        traversedLinkIds.add(link.id);
+        const source = String(link.source);
+        const target = String(link.target);
+        const neighborId = source === nodeId ? target : source;
+        if (!visitedNodes.has(neighborId)) {
+          visitedNodes.add(neighborId);
+          nextFrontier.add(neighborId);
+        }
+      });
+    });
+    frontier = nextFrontier;
+    if (frontier.size === 0) break;
+  }
+
+  const traversedLinks = sourceGraph.links.filter((link) => traversedLinkIds.has(link.id));
+  const shuffledLinks = [...traversedLinks]
+    .map((link, index) => {
+      let hash = shuffleNonce * 131 + index * 17;
+      for (const char of link.id) hash = (hash * 33 + char.charCodeAt(0)) >>> 0;
+      return { link, hash };
+    })
+    .sort((left, right) => left.hash - right.hash)
+    .map((entry) => entry.link);
+
+  const sampledPrimaryLinks = shuffledLinks.slice(0, maxRelations);
+  const visibleNodeIds = new Set<string>([centerId]);
+  sampledPrimaryLinks.forEach((link) => {
+    visibleNodeIds.add(String(link.source));
+    visibleNodeIds.add(String(link.target));
+  });
+
+  const closureLinks = sourceGraph.links.filter((link) => {
+    const source = String(link.source);
+    const target = String(link.target);
+    return visibleNodeIds.has(source) && visibleNodeIds.has(target);
+  });
+
+  const visibleNodes = sourceGraph.nodes
+    .filter((node) => visibleNodeIds.has(node.id))
+    .map((node) => ({
+      ...node,
+      is_seed: node.id === centerId || node.is_seed,
+    }));
+
+  return {
+    nodes: visibleNodes,
+    links: closureLinks,
+  };
+}
+
+function buildAnswerSummary(trace: SearchTrace) {
+  const relations = trace.trace.result_relations || [];
+  const passages = trace.trace.grounded_passages || [];
+
+  if (relations.length === 0) {
+    return {
+      answer: "当前知识库里没有检索到足够相关的关系，暂时无法给出明确回答。",
+      support: passages[0]?.passage?.trim() || "",
+    };
+  }
+
+  const uniqueSentences = Array.from(
+    new Set(relations.slice(0, 3).map((item) => relationToSentence(item))),
+  );
+  const answer = uniqueSentences.join("");
+
+  const support =
+    passages.find((item) => item.matched_relation_ids?.includes(relations[0]?.id))?.passage?.trim() ||
+    passages[0]?.passage?.trim() ||
+    relations[0]?.passage?.trim() ||
+    "";
+
+  return { answer, support };
+}
+
+function HighlightText({
+  text,
+  terms,
+}: {
+  text: string;
+  terms: string[];
+}) {
+  const filteredTerms = React.useMemo(
+    () =>
+      Array.from(new Set(terms.map((item) => item.trim()).filter((item) => item.length >= 2))).sort(
+        (left, right) => right.length - left.length,
+      ),
+    [terms],
+  );
+
+  const parts = React.useMemo(() => {
+    if (!text || filteredTerms.length === 0) return [text];
+    const pattern = new RegExp(`(${filteredTerms.map(escapeRegExp).join("|")})`, "gi");
+    return text.split(pattern).filter(Boolean);
+  }, [filteredTerms, text]);
+
+  if (!text) return null;
+
+  return (
+    <>
+      {parts.map((part, index) => {
+        const matched = filteredTerms.some((term) => term.toLowerCase() === part.toLowerCase());
+        return matched ? (
+          <mark key={`${part}-${index}`}>{part}</mark>
+        ) : (
+          <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>
+        );
+      })}
+    </>
+  );
+}
+
+function buildAnswerFromTrace(trace: SearchTrace | null) {
+  if (!trace) return "";
+  const topRelation = trace.trace.result_relations[0];
+  if (!topRelation) return "暂时没有检索到足够可靠的答案。";
+
+  const matchedEvidence = trace.trace.grounded_passages.find((item) =>
+    item.matched_relation_ids?.includes(topRelation.id),
+  );
+  const evidenceText = matchedEvidence?.passage || topRelation.passage || "";
+
+  if (evidenceText) {
+    return evidenceText.length > 140 ? `${evidenceText.slice(0, 140).trim()}...` : evidenceText;
+  }
+
+  return `${topRelation.subject_name} 与 ${topRelation.object_name} 的关系是“${topRelation.relation}”。`;
+}
+
+function useElementSize<T extends HTMLElement>() {
+  const ref = React.useRef<T | null>(null);
+  const [size, setSize] = React.useState({ width: 0, height: 0 });
+
+  React.useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    const update = () => {
+      setSize({
+        width: element.clientWidth,
+        height: element.clientHeight,
+      });
+    };
+
+    update();
+
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, size] as const;
+}
+
+const TopologyCanvas = React.forwardRef<
+  GraphCanvasHandle,
+  {
+    width: number;
+    height: number;
+    nodes: TopologyNode[];
+    links: TopologyLink[];
+    centerNodeId: string | null;
+    dimUnfocused?: boolean;
+    selectedRelationId: string | null;
+    hoveredNodeId: string | null;
+    hoveredLinkId: string | null;
+    onHoveredNodeChange: (value: string | null) => void;
+    onHoveredLinkChange: (value: string | null) => void;
+    onSelectedRelationChange: (value: string | null) => void;
+    onScaleChange: (value: number) => void;
+  }
+>(function TopologyCanvas(
+  {
+    width,
+    height,
+    nodes,
+    links,
+    centerNodeId,
+    dimUnfocused = true,
+    selectedRelationId,
+    hoveredNodeId,
+    hoveredLinkId,
+    onHoveredNodeChange,
+    onHoveredLinkChange,
+    onSelectedRelationChange,
+    onScaleChange,
+  },
+  ref,
+) {
+  const svgRef = React.useRef<SVGSVGElement | null>(null);
+  const simulationRef = React.useRef<any>(null);
+  const positionCacheRef = React.useRef<Map<string, { x: number; y: number; vx: number; vy: number }>>(new Map());
+  const [simNodes, setSimNodes] = React.useState<SimulatedTopologyNode[]>([]);
+  const [simLinks, setSimLinks] = React.useState<SimulatedTopologyLink[]>([]);
+  const [zoomScale, setZoomScale] = React.useState(1);
+  const [zoomOffset, setZoomOffset] = React.useState({ x: 0, y: 0 });
+  const [draggedNodeId, setDraggedNodeId] = React.useState<string | null>(null);
+  const [isPanning, setIsPanning] = React.useState(false);
+  const pointerRef = React.useRef({ x: 0, y: 0 });
+
+  const connectedNodeIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    const activeLinkId = hoveredLinkId || selectedRelationId;
+    if (centerNodeId) ids.add(centerNodeId);
+    if (hoveredNodeId) {
+      ids.add(hoveredNodeId);
+      simLinks.forEach((link) => {
+        if (link.source.id === hoveredNodeId || link.target.id === hoveredNodeId) {
+          ids.add(link.source.id);
+          ids.add(link.target.id);
+        }
+      });
+    }
+    if (activeLinkId) {
+      const activeLink = simLinks.find((link) => link.id === activeLinkId);
+      if (activeLink) {
+        ids.add(activeLink.source.id);
+        ids.add(activeLink.target.id);
+      }
+    }
+    return ids;
+  }, [centerNodeId, hoveredLinkId, hoveredNodeId, selectedRelationId, simLinks]);
+
+  React.useEffect(() => {
+    onScaleChange(Math.round(zoomScale * 100));
+  }, [onScaleChange, zoomScale]);
+
+  React.useEffect(() => {
+    if (!width || !height || nodes.length === 0) {
+      setSimNodes([]);
+      setSimLinks([]);
+      simulationRef.current?.stop?.();
+      return;
+    }
+
+    const nodeCopies: SimulatedTopologyNode[] = nodes.map((node, index) => {
+      const cached = positionCacheRef.current.get(node.id);
+      const ringAngle = (index / Math.max(nodes.length, 1)) * Math.PI * 2;
+      const radius = node.id === centerNodeId ? 0 : 130 + (index % 4) * 28;
+      return {
+        ...node,
+        x: cached?.x ?? width / 2 + Math.cos(ringAngle) * radius,
+        y: cached?.y ?? height / 2 + Math.sin(ringAngle) * radius,
+        vx: cached?.vx ?? 0,
+        vy: cached?.vy ?? 0,
+      };
+    });
+
+    const nodeMap = new Map(nodeCopies.map((node) => [node.id, node]));
+    const linkCopies: SimulatedTopologyLink[] = links
+      .map((link) => {
+        const source = nodeMap.get(String(link.source));
+        const target = nodeMap.get(String(link.target));
+        if (!source || !target) return null;
+        return {
+          id: link.id,
+          source,
+          target,
+          label: link.label,
+          stroke: link.stroke,
+          textStroke: link.textStroke,
+        };
+      })
+      .filter(Boolean) as SimulatedTopologyLink[];
+
+    const simulation = forceSimulation(nodeCopies as any)
+      .force(
+        "link",
+        forceLink(linkCopies as any)
+          .id((d: any) => d.id)
+          .distance((link: any) => {
+            if (link.source?.id === centerNodeId || link.target?.id === centerNodeId) return 118;
+            return 152;
+          })
+          .strength((link: any) => {
+            if (link.source?.id === centerNodeId || link.target?.id === centerNodeId) return 0.32;
+            return 0.12;
+          }),
+      )
+      .force("charge", forceManyBody().strength(-320))
+      .force("center", forceCenter(width / 2, height / 2).strength(0.09))
+      .force(
+        "collision",
+        forceCollide().radius((node: any) => {
+          const simulatedNode = node as SimulatedTopologyNode;
+          return (simulatedNode.val || 20) + 24;
+        }),
+      )
+      .alpha(0.9)
+      .alphaDecay(0.06)
+      .alphaMin(0.006);
+
+    simulation.on("tick", () => {
+      nodeCopies.forEach((node) => {
+        positionCacheRef.current.set(node.id, {
+          x: node.x,
+          y: node.y,
+          vx: node.vx || 0,
+          vy: node.vy || 0,
+        });
+      });
+      setSimNodes([...nodeCopies]);
+      setSimLinks([...linkCopies]);
+    });
+
+    simulationRef.current = simulation;
+    return () => simulation.stop();
+  }, [centerNodeId, height, links, nodes, width]);
+
+  const toCanvasPoint = React.useCallback(
+    (clientX: number, clientY: number) => {
+      const rect = svgRef.current?.getBoundingClientRect();
+      if (!rect) return { x: 0, y: 0 };
+      return {
+        x: (clientX - rect.left - zoomOffset.x) / zoomScale,
+        y: (clientY - rect.top - zoomOffset.y) / zoomScale,
+      };
+    },
+    [zoomOffset.x, zoomOffset.y, zoomScale],
+  );
+
+  const zoomAt = React.useCallback(
+    (nextScale: number, anchor?: { x: number; y: number }) => {
+      const clamped = Math.max(0.2, Math.min(5.2, nextScale));
+      const focus = anchor || { x: width / 2, y: height / 2 };
+      setZoomOffset((current) => ({
+        x: focus.x - ((focus.x - current.x) / zoomScale) * clamped,
+        y: focus.y - ((focus.y - current.y) / zoomScale) * clamped,
+      }));
+      setZoomScale(clamped);
+    },
+    [height, width, zoomScale],
+  );
+
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      zoomIn: () => zoomAt(zoomScale * 1.3),
+      zoomOut: () => zoomAt(zoomScale / 1.3),
+      resetView: () => {
+        setZoomScale(1);
+        setZoomOffset({ x: 0, y: 0 });
+        simulationRef.current?.alpha?.(0.75)?.restart?.();
+      },
+    }),
+    [zoomAt, zoomScale],
+  );
+
+  React.useEffect(() => {
+    const svgElement = svgRef.current;
+    if (!svgElement) return;
+
+    const handleNativeWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const rect = svgElement.getBoundingClientRect();
+      const anchor = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      };
+      zoomAt(zoomScale * (event.deltaY < 0 ? 1.12 : 0.88), anchor);
+    };
+
+    svgElement.addEventListener("wheel", handleNativeWheel, { passive: false });
+    return () => {
+      svgElement.removeEventListener("wheel", handleNativeWheel);
+    };
+  }, [zoomAt, zoomScale]);
+
+  const handleSvgMouseDown = (event: React.MouseEvent<SVGSVGElement>) => {
+    pointerRef.current = { x: event.clientX, y: event.clientY };
+    setIsPanning(true);
+    onHoveredNodeChange(null);
+    onHoveredLinkChange(null);
+  };
+
+  const handleNodeMouseDown = (event: React.MouseEvent, node: SimulatedTopologyNode) => {
+    event.stopPropagation();
+    pointerRef.current = { x: event.clientX, y: event.clientY };
+    node.fx = node.x;
+    node.fy = node.y;
+    setDraggedNodeId(node.id);
+    simulationRef.current?.alpha?.(0.22)?.restart?.();
+    onHoveredNodeChange(node.id);
+  };
+
+  const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
+    if (draggedNodeId) {
+      const point = toCanvasPoint(event.clientX, event.clientY);
+      const node = simNodes.find((entry) => entry.id === draggedNodeId);
+      if (!node) return;
+      node.fx = point.x;
+      node.fy = point.y;
+      node.x = point.x;
+      node.y = point.y;
+      setSimNodes([...simNodes]);
+      return;
+    }
+
+    if (isPanning) {
+      const deltaX = event.clientX - pointerRef.current.x;
+      const deltaY = event.clientY - pointerRef.current.y;
+      pointerRef.current = { x: event.clientX, y: event.clientY };
+      setZoomOffset((current) => ({ x: current.x + deltaX, y: current.y + deltaY }));
+    }
+  };
+
+  const releaseDrag = React.useCallback(() => {
+    if (draggedNodeId) {
+      const node = simNodes.find((entry) => entry.id === draggedNodeId);
+      if (node) {
+        node.fx = null;
+        node.fy = null;
+      }
+      simulationRef.current?.alpha?.(0.18)?.restart?.();
+    }
+    setDraggedNodeId(null);
+    setIsPanning(false);
+  }, [draggedNodeId, simNodes]);
+
+  return (
+    <svg
+      ref={svgRef}
+      width={width}
+      height={height}
+      onMouseDown={handleSvgMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={releaseDrag}
+      onMouseLeave={releaseDrag}
+    >
+      <defs>
+        <marker id="graph-arrow-normal" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+          <path d="M 0 0 L 12 6 L 0 12 z" fill="rgba(139, 162, 203, 0.75)" />
+        </marker>
+        <marker id="graph-arrow-active" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="9" markerHeight="9" orient="auto">
+          <path d="M 0 0 L 12 6 L 0 12 z" fill="#56dfff" />
+        </marker>
+      </defs>
+      <g transform={`translate(${zoomOffset.x}, ${zoomOffset.y}) scale(${zoomScale})`}>
+        {simLinks.map((link) => {
+          const isActive = hoveredLinkId === link.id || selectedRelationId === link.id;
+          const touchesHoveredNode = Boolean(
+            hoveredNodeId && (link.source.id === hoveredNodeId || link.target.id === hoveredNodeId),
+          );
+          const shouldHighlight = isActive || touchesHoveredNode;
+          const isCenterLink = Boolean(centerNodeId && (link.source.id === centerNodeId || link.target.id === centerNodeId));
+          const opacity = dimUnfocused
+            ? shouldHighlight
+              ? 1
+              : isCenterLink
+                ? 0.46
+                : 0.12
+            : shouldHighlight
+              ? 1
+              : isCenterLink
+                ? 0.82
+                : 0.68;
+          const midX = (link.source.x + link.target.x) / 2;
+          const midY = (link.source.y + link.target.y) / 2;
+          const labelWidth = Math.max(link.label.length * 8.4, 54);
+
+          return (
+            <g
+              key={link.id}
+              style={{ opacity }}
+              onMouseEnter={() => {
+                onHoveredLinkChange(link.id);
+                onSelectedRelationChange(link.id);
+              }}
+              onMouseLeave={() => onHoveredLinkChange(null)}
+            >
+              <line
+                className={shouldHighlight ? "graph-link-line graph-link-line-active" : "graph-link-line"}
+                x1={link.source.x}
+                y1={link.source.y}
+                x2={link.target.x}
+                y2={link.target.y}
+                stroke={shouldHighlight ? "#56dfff" : link.stroke}
+                strokeWidth={shouldHighlight ? 2.8 : isCenterLink ? 1.9 : 1.2}
+                strokeDasharray={shouldHighlight ? "8 7" : "6 8"}
+                markerEnd={shouldHighlight ? "url(#graph-arrow-active)" : "url(#graph-arrow-normal)"}
+              />
+              <rect
+                x={midX - labelWidth / 2}
+                y={midY - 10}
+                width={labelWidth}
+                height={20}
+                rx={6}
+                fill={shouldHighlight ? "rgba(10, 26, 46, 0.95)" : "rgba(10, 19, 38, 0.66)"}
+                stroke={shouldHighlight ? "rgba(86, 223, 255, 0.28)" : link.textStroke}
+                strokeWidth={1}
+              />
+              <text
+                x={midX}
+                y={midY + 3}
+                textAnchor="middle"
+                fontSize="12px"
+                fill={shouldHighlight ? "#8cf2ff" : "rgba(196, 209, 237, 0.72)"}
+                pointerEvents="none"
+              >
+                {link.label}
+              </text>
+            </g>
+          );
+        })}
+
+        {simNodes.map((node) => {
+          const isCenter = node.id === centerNodeId;
+          const isHovered = hoveredNodeId === node.id;
+          const isConnected = connectedNodeIds.has(node.id);
+          const opacity = dimUnfocused ? (isCenter ? 1 : isHovered || isConnected ? 0.94 : 0.2) : 0.94;
+          const radius = Math.max(isCenter ? 34 : 22, node.val);
+          const fontSize = isCenter ? 18 : 12;
+          const nodeFill = isCenter ? "rgba(206, 145, 31, 0.9)" : node.fill;
+          const nodeGlow = isCenter ? "rgba(255, 196, 79, 0.3)" : node.glow;
+          const nodeBorder = isCenter ? "rgba(255, 220, 117, 0.96)" : node.border;
+          const nodeText = isCenter ? "#fff1b3" : "rgba(216, 225, 246, 0.88)";
+
+          return (
+            <g
+              key={node.id}
+              transform={`translate(${node.x}, ${node.y})`}
+              style={{ opacity }}
+              onMouseDown={(event) => handleNodeMouseDown(event, node)}
+              onMouseEnter={() => onHoveredNodeChange(node.id)}
+              onMouseLeave={() => onHoveredNodeChange(null)}
+            >
+              <circle r={radius + 18} fill={nodeGlow} />
+              <circle
+                r={radius}
+                fill={nodeFill}
+                stroke={isCenter ? "#ffd76b" : nodeBorder}
+                strokeWidth={isCenter ? 3 : 2}
+              />
+              <circle r={Math.max(radius * 0.16, 3)} cy={-radius + 6} fill="rgba(189, 210, 255, 0.44)" />
+              {isCenter ? (
+                <circle
+                  r={radius + 12}
+                  fill="none"
+                  stroke="rgba(255, 214, 103, 0.72)"
+                  strokeWidth={2}
+                  strokeDasharray="8 7"
+                />
+              ) : null}
+              <text
+                textAnchor="middle"
+                y="4"
+                fontSize={`${fontSize}px`}
+                fill={nodeText}
+                pointerEvents="none"
+              >
+                {node.displayLabel}
+              </text>
+            </g>
+          );
+        })}
+      </g>
+    </svg>
+  );
+});
+
+function toUploadedDocument(file: UploadedFile): UploadedDocument {
   return {
     id: file.id,
     name: file.name,
     path: file.path,
-    type: extension,
+    type: file.extension.toUpperCase(),
     uploadedAt: formatUploadedAt(file.uploaded_at),
     size: formatFileSize(file.size),
-    parser: extension === "MD" ? "Markdown" : extension === "PDF" ? "Book" : "Text",
     selected: false,
-    progress: 0,
-    state: "待构建",
   };
+}
+
+function statusTone(status: string) {
+  if (status === "completed") return "good";
+  if (status === "partial_failed") return "warn";
+  if (status === "failed") return "danger";
+  return "neutral";
 }
 
 function App() {
-  const [page, setPage] = React.useState<Page>("home");
-  const [knowledgeBases, setKnowledgeBases] = React.useState<KnowledgeBase[]>(
-    initialKnowledgeBases,
-  );
-  const [creatingKnowledge, setCreatingKnowledge] = React.useState(false);
-  const [selectedKnowledgeId, setSelectedKnowledgeId] = React.useState<string | null>(null);
-  const [selectedChatKnowledgeId, setSelectedChatKnowledgeId] = React.useState<string | null>(null);
-  const [selectedSearchKnowledgeId, setSelectedSearchKnowledgeId] = React.useState<string | null>(
-    null,
-  );
-  const [uploadedDocuments, setUploadedDocuments] =
-    React.useState<UploadedDocument[]>(initialDocuments);
-  const [chats, setChats] = React.useState<ChatItem[]>(initialChats);
-  const [activeChatId, setActiveChatId] = React.useState(initialChats[0].id);
+  const [module, setModule] = React.useState<ModuleKey>("overview");
+  const [catalog, setCatalog] = React.useState<LibraryRecord[]>([]);
+  const [catalogLoading, setCatalogLoading] = React.useState(true);
+  const [selectedKbId, setSelectedKbId] = React.useState("");
+  const [overview, setOverview] = React.useState<LibraryOverview | null>(null);
+  const [overviewLoading, setOverviewLoading] = React.useState(false);
+  const [documents, setDocuments] = React.useState<UploadedDocument[]>([]);
+  const [builderTask, setBuilderTask] = React.useState<DatabaseBuildProgress | null>(null);
+  const [builderKbId, setBuilderKbId] = React.useState("");
+  const [builderError, setBuilderError] = React.useState("");
+  const [builderLoading, setBuilderLoading] = React.useState(false);
+  const [mineruGpus, setMineruGpus] = React.useState("0");
+  const [workersPerGpu, setWorkersPerGpu] = React.useState(1);
+  const [extractConcurrency, setExtractConcurrency] = React.useState(10);
+  const [embeddingConcurrency, setEmbeddingConcurrency] = React.useState(10);
+  const [maxChunkChars, setMaxChunkChars] = React.useState(1500);
+  const [chunkOverlapChars, setChunkOverlapChars] = React.useState(150);
+  const [queryText, setQueryText] = React.useState("");
+  const [queryTrace, setQueryTrace] = React.useState<SearchTrace | null>(null);
+  const [queryLoading, setQueryLoading] = React.useState(false);
+  const [queryError, setQueryError] = React.useState("");
+  const [queryGraphStage, setQueryGraphStage] = React.useState<QueryGraphStage>("seed");
 
-  const openPage = (nextPage: Page) => {
-    if (nextPage === "knowledge") {
-      setSelectedKnowledgeId(null);
+  const loadCatalog = React.useCallback(async () => {
+    setCatalogLoading(true);
+    try {
+      const response = await fetch(
+        apiUrl(`/database_build/catalog?milvus_db=${DEFAULT_MILVUS_DB}&user_id=${DEFAULT_USER_ID}`),
+      );
+      const data = await response.json();
+      const libraries = (data.libraries || []) as LibraryRecord[];
+      setCatalog(libraries);
+      if (!selectedKbId && libraries[0]) {
+        setSelectedKbId(libraries[0].kb_id);
+        setBuilderKbId(libraries[0].kb_id);
+      }
+    } finally {
+      setCatalogLoading(false);
     }
-    if (nextPage === "chat") {
-      setSelectedChatKnowledgeId(null);
+  }, [selectedKbId]);
+
+  const loadOverview = React.useCallback(async (kbId: string) => {
+    if (!kbId) return;
+    setOverviewLoading(true);
+    try {
+      const response = await fetch(
+        apiUrl(
+          `/database_build/library/${encodeURIComponent(kbId)}/overview?milvus_db=${DEFAULT_MILVUS_DB}&user_id=${DEFAULT_USER_ID}`,
+        ),
+      );
+      if (!response.ok) throw new Error("概览加载失败");
+      const data = (await response.json()) as LibraryOverview;
+      setOverview(data);
+    } catch {
+      setOverview(null);
+    } finally {
+      setOverviewLoading(false);
     }
-    if (nextPage === "search") {
-      setSelectedSearchKnowledgeId(null);
+  }, []);
+
+  const loadUploads = React.useCallback(async () => {
+    const response = await fetch(apiUrl("/files"));
+    const data = await response.json();
+    setDocuments(((data.files || []) as UploadedFile[]).map(toUploadedDocument));
+  }, []);
+
+  const loadLatestBuildTask = React.useCallback(async (kbId?: string) => {
+    const query = kbId ? `?kb_id=${encodeURIComponent(kbId)}` : "";
+    const response = await fetch(apiUrl(`/database_build/latest${query}`));
+    if (!response.ok) {
+      throw new Error("暂无构建任务");
     }
-    setPage(nextPage);
-  };
-
-  const createKnowledgeBase = (name: string) => {
-    const nextIndex = knowledgeBases.length + 1;
-    const newKnowledge: KnowledgeBase = {
-      id: `kb-${Date.now()}`,
-      name: name.trim() || `新知识库 ${nextIndex}`,
-      date: "2026-04-27",
-      owner: "Mengna",
-      files: 0,
-      status: "待解析",
-      tone: nextIndex % 2 === 0 ? "purple" : "amber",
-    };
-
-    setKnowledgeBases((current) => [...current, newKnowledge]);
-  };
-
-  const renameKnowledgeBase = (id: string, name: string) => {
-    setKnowledgeBases((current) =>
-      current.map((knowledge) =>
-        knowledge.id === id ? { ...knowledge, name: name.trim() || knowledge.name } : knowledge,
-      ),
-    );
-  };
-
-  const openKnowledgeBase = (id: string) => {
-    setSelectedKnowledgeId(id);
-    setPage("knowledge");
-  };
-
-  const openConversationKnowledge = (targetPage: "chat" | "search", knowledgeId: string) => {
-    if (targetPage === "chat") {
-      setSelectedChatKnowledgeId(knowledgeId);
-      const firstChat = chats.find((item) => item.knowledgeId === knowledgeId) ?? chats[0];
-      if (firstChat) setActiveChatId(firstChat.id);
-    } else {
-      setSelectedSearchKnowledgeId(knowledgeId);
-    }
-  };
-
-  return (
-    <div className="app">
-      <TopBar current={page} onChange={openPage} />
-      {page === "home" && (
-        <HomePage
-          knowledgeBases={knowledgeBases}
-          chats={chats}
-          onCreateKnowledge={() => setCreatingKnowledge(true)}
-          onOpenKnowledge={openKnowledgeBase}
-          onOpenChat={(id) => openConversationKnowledge("chat", id)}
-          onRenameKnowledge={renameKnowledgeBase}
-        />
-      )}
-      {page === "knowledge" && (
-        <KnowledgePage
-          knowledgeBases={knowledgeBases}
-          selectedKnowledgeId={selectedKnowledgeId}
-          documents={uploadedDocuments}
-          onDocumentsChange={setUploadedDocuments}
-          onCreateKnowledge={() => setCreatingKnowledge(true)}
-          onOpenKnowledge={openKnowledgeBase}
-          onRenameKnowledge={renameKnowledgeBase}
-          onBackToList={() => setSelectedKnowledgeId(null)}
-        />
-      )}
-      {page === "chat" && (
-        selectedChatKnowledgeId ? (
-          <ConversationPage
-            label="聊天"
-            description="围绕知识库进行连续问答"
-            items={chats}
-            activeId={activeChatId}
-            knowledgeBases={knowledgeBases}
-            selectedKnowledgeId={selectedChatKnowledgeId}
-            onActiveChange={setActiveChatId}
-            onItemsChange={setChats}
-            onBackToKnowledgeList={() => setSelectedChatKnowledgeId(null)}
-          />
-        ) : (
-          <ConversationKnowledgePicker
-            title="全部聊天"
-            knowledgeBases={knowledgeBases}
-            onCreateKnowledge={() => setCreatingKnowledge(true)}
-            onOpenKnowledge={(id) => openConversationKnowledge("chat", id)}
-            onRenameKnowledge={renameKnowledgeBase}
-          />
-        )
-      )}
-      {page === "search" && (
-        selectedSearchKnowledgeId ? (
-          <SearchWorkspace
-            knowledgeBases={knowledgeBases}
-            selectedKnowledgeId={selectedSearchKnowledgeId}
-            onBackToKnowledgeList={() => setSelectedSearchKnowledgeId(null)}
-          />
-        ) : (
-          <ConversationKnowledgePicker
-            title="全部搜索"
-            knowledgeBases={knowledgeBases}
-            onCreateKnowledge={() => setCreatingKnowledge(true)}
-            onOpenKnowledge={(id) => openConversationKnowledge("search", id)}
-            onRenameKnowledge={renameKnowledgeBase}
-          />
-        )
-      )}
-      {creatingKnowledge && (
-        <CreateKnowledgeModal
-          onCancel={() => setCreatingKnowledge(false)}
-          onCreate={(name) => {
-            createKnowledgeBase(name);
-            setCreatingKnowledge(false);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function Logo({ compact = false }: { compact?: boolean }) {
-  return (
-    <div className="brand-lockup">
-      <div className={compact ? "logo-mark compact" : "logo-mark"}>
-        <img src={appLogo} alt="" aria-hidden="true" />
-      </div>
-    </div>
-  );
-}
-
-function TopBar({
-  current,
-  onChange,
-}: {
-  current: Page;
-  onChange: (page: Page) => void;
-}) {
-  const items: Array<[Page, string, React.ReactNode]> = [
-    ["home", "首页", <House size={18} />],
-    ["knowledge", "知识库", <BookOpen size={18} />],
-    ["chat", "聊天", <MessageCircle size={18} />],
-    ["search", "搜索", <Search size={18} />],
-  ];
-
-  return (
-    <header className="topbar">
-      <Logo compact />
-      <nav className="pill-nav" aria-label="主导航">
-        {items.map(([key, label, icon]) => (
-          <button
-            key={key}
-            aria-label={label}
-            title={label}
-            className={current === key ? "active" : ""}
-            onClick={() => onChange(key)}
-          >
-            {icon}
-          </button>
-        ))}
-      </nav>
-      <div className="topbar-actions">
-        <button className="icon-button" aria-label="全局搜索">
-          <Search size={17} />
-        </button>
-        <div className="avatar">M</div>
-      </div>
-    </header>
-  );
-}
-
-function HomePage({
-  knowledgeBases,
-  chats,
-  onCreateKnowledge,
-  onOpenKnowledge,
-  onOpenChat,
-  onRenameKnowledge,
-}: {
-  knowledgeBases: KnowledgeBase[];
-  chats: ChatItem[];
-  onCreateKnowledge: () => void;
-  onOpenKnowledge: (id: string) => void;
-  onOpenChat: (id: string) => void;
-  onRenameKnowledge: (id: string, name: string) => void;
-}) {
-  const parsedCount = knowledgeBases.filter((knowledge) => knowledge.status === "已解析").length;
-  const fileCount = knowledgeBases.reduce((total, knowledge) => total + knowledge.files, 0);
-
-  return (
-    <main className="home page-shell">
-      <section className="home-hero">
-        <div className="hero-copy">
-          <span className="eyebrow">
-            <Network size={16} />
-            NextGraph Knowledge Studio
-          </span>
-          <h1>
-            欢迎来到 <span>影谱知识库</span>
-          </h1>
-          <p>管理知识库、解析文件、抽取图谱并开始智能问答</p>
-        </div>
-        <div className="hero-stats" aria-label="知识库概览">
-          <MetricCard label="知识库" value={knowledgeBases.length} hint={`${parsedCount} 个已解析`} />
-          <MetricCard label="文档" value={fileCount} hint="可用于构建与检索" />
-          <MetricCard label="会话" value={chats.length} hint="知识库问答记录" />
-        </div>
-        <button className="primary-action" onClick={onCreateKnowledge}>
-          <Plus size={18} />
-          新建知识库
-        </button>
-      </section>
-
-      <WorkflowStrip />
-
-      <KnowledgeGrid
-        title="知识库"
-        knowledgeBases={knowledgeBases}
-        onCreateKnowledge={onCreateKnowledge}
-        onOpenKnowledge={onOpenKnowledge}
-        onRenameKnowledge={onRenameKnowledge}
-        showCreateAction={false}
-      />
-
-      <ChatLaunchSection
-        chats={chats}
-        knowledgeBases={knowledgeBases}
-        onOpenChat={onOpenChat}
-      />
-    </main>
-  );
-}
-
-function MetricCard({ label, value, hint }: { label: string; value: number; hint: string }) {
-  return (
-    <div className="metric-card">
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <small>{hint}</small>
-    </div>
-  );
-}
-
-function WorkflowStrip() {
-  const steps = [
-    ["上传文件", "PDF、Word、Markdown、TXT 等多格式接入", <Upload size={17} />],
-    ["构建知识库", "解析、分块、向量化并写入 Milvus", <Database size={17} />],
-    ["智能使用", "在 Chat 和搜索里复用知识库能力", <Bot size={17} />],
-  ];
-
-  return (
-    <section className="workflow-strip" aria-label="知识库构建流程">
-      {steps.map(([title, description, icon]) => (
-        <article className="workflow-step" key={String(title)}>
-          <span>{icon}</span>
-          <div>
-            <strong>{title}</strong>
-            <p>{description}</p>
-          </div>
-        </article>
-      ))}
-    </section>
-  );
-}
-
-function ChatLaunchSection({
-  chats,
-  knowledgeBases,
-  onOpenChat,
-}: {
-  chats: ChatItem[];
-  knowledgeBases: KnowledgeBase[];
-  onOpenChat: (id: string) => void;
-}) {
-  return (
-    <section className="home-section">
-      <div className="section-head">
-        <div className="section-title">
-          <h2>最近聊天</h2>
-          <MessageCircle size={23} />
-        </div>
-      </div>
-      <div className="chat-launch-grid">
-        {chats.slice(0, 3).map((chat) => {
-          const knowledge = knowledgeBases.find((item) => item.id === chat.knowledgeId);
-          return (
-            <button
-              className="chat-launch-card"
-              key={chat.id}
-              onClick={() => onOpenChat(chat.knowledgeId)}
-            >
-              <span className={`letter-icon small ${knowledge?.tone ?? "green"}`}>
-                {knowledge?.name[0] ?? "知"}
-              </span>
-              <div>
-                <strong>{chat.title}</strong>
-                <p>{knowledge?.name ?? "未绑定知识库"}</p>
-              </div>
-              <MessageCircle size={18} />
-            </button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function KnowledgeGrid({
-  title,
-  knowledgeBases,
-  onCreateKnowledge,
-  onOpenKnowledge,
-  onRenameKnowledge,
-  showCreateAction = true,
-}: {
-  title: string;
-  knowledgeBases: KnowledgeBase[];
-  onCreateKnowledge: () => void;
-  onOpenKnowledge: (id: string) => void;
-  onRenameKnowledge: (id: string, name: string) => void;
-  showCreateAction?: boolean;
-}) {
-  return (
-    <section className="home-section">
-      <div className="section-head">
-        <div className="section-title">
-          <h2>{title}</h2>
-          <FolderOpen size={24} />
-        </div>
-        {showCreateAction && (
-          <button className="secondary-action" onClick={onCreateKnowledge}>
-            <Plus size={17} />
-            新建知识库
-          </button>
-        )}
-      </div>
-      <div className="card-grid">
-        {knowledgeBases.map((knowledge) => (
-          <KnowledgeCard
-            key={knowledge.id}
-            knowledge={knowledge}
-            onOpen={() => onOpenKnowledge(knowledge.id)}
-            onRename={(name) => onRenameKnowledge(knowledge.id, name)}
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function KnowledgeCard({
-  knowledge,
-  onOpen,
-  onRename,
-}: {
-  knowledge: KnowledgeBase;
-  onOpen: () => void;
-  onRename: (name: string) => void;
-}) {
-  const [editing, setEditing] = React.useState(false);
-  const [draft, setDraft] = React.useState(knowledge.name);
+    return (await response.json()) as DatabaseBuildProgress;
+  }, []);
 
   React.useEffect(() => {
-    setDraft(knowledge.name);
-  }, [knowledge.name]);
+    void loadCatalog();
+    void loadUploads();
+  }, [loadCatalog, loadUploads]);
 
-  const save = () => {
-    onRename(draft);
-    setEditing(false);
-  };
+  React.useEffect(() => {
+    if (selectedKbId) {
+      void loadOverview(selectedKbId);
+    }
+  }, [selectedKbId, loadOverview]);
 
-  return (
-    <article className="project-card knowledge-card">
-      <button className="card-open-area" onClick={onOpen} aria-label={`打开 ${knowledge.name}`}>
-        <div className="card-topline">
-          <div className={`letter-icon ${knowledge.tone}`}>{knowledge.name[0] || "知"}</div>
-          <span className={`status ${knowledge.status === "已解析" ? "success" : "warn"}`}>
-            {knowledge.status}
-          </span>
-        </div>
-        <MoreHorizontal size={18} className="card-more" />
-        <h3>{knowledge.name}</h3>
-        <p>
-          {knowledge.date} · {knowledge.owner} · {knowledge.files} files
-        </p>
-        <div className="card-signal">
-          <span><CircleCheck size={14} /> 解析</span>
-          <span><Clock size={14} /> 最近更新</span>
-        </div>
-      </button>
+  const selectedLibrary =
+    catalog.find((item) => item.kb_id === selectedKbId) || catalog[0] || null;
 
-      {editing ? (
-        <div className="rename-row">
-          <input
-            value={draft}
-            autoFocus
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") save();
-              if (event.key === "Escape") setEditing(false);
-            }}
-          />
-          <button aria-label="保存名称" onClick={save}>
-            <Check size={15} />
-          </button>
-          <button aria-label="取消重命名" onClick={() => setEditing(false)}>
-            <X size={15} />
-          </button>
-        </div>
-      ) : (
-        <button className="rename-button" onClick={() => setEditing(true)}>
-          <Edit3 size={14} />
-          重命名
-        </button>
-      )}
-    </article>
-  );
-}
-
-function CreateKnowledgeModal({
-  onCancel,
-  onCreate,
-}: {
-  onCancel: () => void;
-  onCreate: (name: string) => void;
-}) {
-  const [name, setName] = React.useState("");
-
-  const submit = (event: React.FormEvent) => {
-    event.preventDefault();
-    onCreate(name);
-  };
-
-  return (
-    <div className="modal-backdrop" role="presentation">
-      <form className="modal-card" onSubmit={submit} role="dialog" aria-modal="true">
-        <div className="modal-head">
-          <h2>新建知识库</h2>
-          <button type="button" aria-label="关闭" onClick={onCancel}>
-            <X size={17} />
-          </button>
-        </div>
-        <label className="modal-field">
-          <span>知识库名称</span>
-          <input
-            value={name}
-            autoFocus
-            placeholder="请输入知识库名称"
-            onChange={(event) => setName(event.target.value)}
-          />
-        </label>
-        <div className="modal-actions">
-          <button type="button" className="outline-button" onClick={onCancel}>
-            取消
-          </button>
-          <button type="submit" className="primary-small">
-            创建
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-function KnowledgePage({
-  knowledgeBases,
-  selectedKnowledgeId,
-  documents,
-  onDocumentsChange,
-  onCreateKnowledge,
-  onOpenKnowledge,
-  onRenameKnowledge,
-  onBackToList,
-}: {
-  knowledgeBases: KnowledgeBase[];
-  selectedKnowledgeId: string | null;
-  documents: UploadedDocument[];
-  onDocumentsChange: React.Dispatch<React.SetStateAction<UploadedDocument[]>>;
-  onCreateKnowledge: () => void;
-  onOpenKnowledge: (id: string) => void;
-  onRenameKnowledge: (id: string, name: string) => void;
-  onBackToList: () => void;
-}) {
-  const selectedKnowledge = knowledgeBases.find((knowledge) => knowledge.id === selectedKnowledgeId);
-
-  if (!selectedKnowledge) {
-    return (
-      <main className="home page-shell">
-        <KnowledgeGrid
-          title="全部知识库"
-          knowledgeBases={knowledgeBases}
-          onCreateKnowledge={onCreateKnowledge}
-          onOpenKnowledge={onOpenKnowledge}
-          onRenameKnowledge={onRenameKnowledge}
-        />
-      </main>
-    );
-  }
-
-  return (
-    <main className="workbench-page">
-      <BuildWorkspace
-        knowledge={selectedKnowledge}
-        documents={documents}
-        onDocumentsChange={onDocumentsChange}
-        onBackToList={onBackToList}
-      />
-    </main>
-  );
-}
-
-function BuildWorkspace({
-  knowledge,
-  documents,
-  onDocumentsChange,
-  onBackToList,
-}: {
-  knowledge: KnowledgeBase;
-  documents: UploadedDocument[];
-  onDocumentsChange: React.Dispatch<React.SetStateAction<UploadedDocument[]>>;
-  onBackToList: () => void;
-}) {
-  const [activeTab, setActiveTab] = React.useState<"upload" | "build">("upload");
-  const [status, setStatus] = React.useState<BuildStatus>("idle");
-  const [message, setMessage] = React.useState("选择服务器文件并配置参数后即可开始构建。");
-  const [taskId, setTaskId] = React.useState<string | null>(null);
-  const [builtLibraries, setBuiltLibraries] = React.useState<BuiltLibrary[]>([]);
-  const [currentBuildFiles, setCurrentBuildFiles] = React.useState<BuildFileProgress[]>([]);
-  const [params, setParams] = React.useState<BuildParams>({
-    kbId: knowledge.id,
-    userId: "admin_user",
-    milvusDb: "crx",
-    outputRoot: "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output",
-    gpus: "0",
-    workersPerGpu: 1,
-    method: "auto",
-    backend: "pipeline",
-    lang: "ch",
-    startPage: "",
-    endPage: "",
-    formula: true,
-    table: true,
-    vectorConcurrency: 10,
-    maxChunkChars: 1500,
-    chunkOverlapChars: 150,
-    embeddingModel: "text-embedding-3-small",
-  });
-
-  const selectedCount = documents.filter((file) => file.selected).length;
-  const taskStorageKey = `nextgraph-build-task:${params.kbId || knowledge.id}`;
-
-  const loadBuiltLibraries = React.useCallback(() => {
-    fetch(`${API_BASE}/database_build/libraries?kb_id=${encodeURIComponent(params.kbId || knowledge.id)}`)
-      .then((response) => (response.ok ? response.json() : Promise.reject(response)))
-      .then((data: { libraries: BuiltLibrary[] }) => setBuiltLibraries(data.libraries ?? []))
-      .catch(() => setBuiltLibraries([]));
-  }, [knowledge.id, params.kbId]);
-
-  const applyBuildProgress = React.useCallback(
-    (data: DatabaseBuildProgress) => {
-      setCurrentBuildFiles(data.files);
-      setTaskId(data.task_id);
-      setStatus(
-        data.status === "completed"
-          ? "completed"
-          : data.status === "failed" || data.status === "partial_failed"
-            ? "failed"
-            : "building",
-      );
-      setMessage(
-        `${data.message} 目标库 ${data.milvus_db ?? params.milvusDb}，整体 ${Math.round(
-          data.progress_percent,
-        )}%`,
-      );
-      window.localStorage.setItem(taskStorageKey, data.task_id);
-      if (["completed", "failed", "partial_failed"].includes(data.status)) {
-        loadBuiltLibraries();
+  const pollBuildProgress = React.useCallback(
+    async (taskId: string) => {
+      const response = await fetch(apiUrl(`/database_build/progress/${taskId}`));
+      const data = (await response.json()) as DatabaseBuildProgress;
+      setBuilderTask(data);
+      if (!["completed", "failed", "partial_failed"].includes(data.status)) {
+        window.setTimeout(() => {
+          void pollBuildProgress(taskId);
+        }, 1500);
+      } else {
+        void loadCatalog();
+        if (builderKbId) {
+          setSelectedKbId(builderKbId);
+          void loadOverview(builderKbId);
+        }
       }
     },
-    [loadBuiltLibraries, params.milvusDb, taskStorageKey],
+    [builderKbId, loadCatalog, loadOverview],
   );
 
-  const openBuildTask = (nextTaskId: string) => {
-    fetch(`${API_BASE}/database_build/progress/${nextTaskId}`)
-      .then((response) => (response.ok ? response.json() : Promise.reject(response)))
-      .then((data: DatabaseBuildProgress) => {
-        applyBuildProgress(data);
-        window.localStorage.setItem(taskStorageKey, data.task_id);
-      })
-      .catch(() => setMessage("无法读取该构建任务进度。"));
+  React.useEffect(() => {
+    if (!builderKbId) return;
+    let cancelled = false;
+
+    const restoreBuildTask = async () => {
+      try {
+        const latestTask = await loadLatestBuildTask(builderKbId);
+        if (cancelled) return;
+        setBuilderTask(latestTask);
+        if (!["completed", "failed", "partial_failed"].includes(latestTask.status)) {
+          void pollBuildProgress(latestTask.task_id);
+        }
+      } catch {
+        if (!cancelled) {
+          setBuilderTask((current) => (current?.kb_id === builderKbId ? current : null));
+        }
+      }
+    };
+
+    void restoreBuildTask();
+    return () => {
+      cancelled = true;
+    };
+  }, [builderKbId, loadLatestBuildTask, pollBuildProgress]);
+
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files?.length) return;
+    const formData = new FormData();
+    Array.from(files).forEach((file) => formData.append("files", file));
+    await fetch(apiUrl("/files/upload"), { method: "POST", body: formData });
+    await loadUploads();
   };
 
-  React.useEffect(() => {
-    fetch(`${API_BASE}/files`)
-      .then((response) => (response.ok ? response.json() : Promise.reject(response)))
-      .then((data: { files: Array<Parameters<typeof toUploadedDocument>[0]> }) => {
-        if (data.files?.length) {
-          onDocumentsChange((current) => [
-            ...data.files.map(toUploadedDocument),
-            ...current.filter((item) => item.id.startsWith("sample-")),
-          ]);
-        }
-      })
-      .catch(() => {
-        setMessage("暂时没有读取到服务器文件，仍可先查看页面流程。");
-      });
-  }, [onDocumentsChange]);
-
-  React.useEffect(() => {
-    loadBuiltLibraries();
-  }, [loadBuiltLibraries]);
-
-  React.useEffect(() => {
-    const savedTaskId = window.localStorage.getItem(taskStorageKey);
-    const endpoint = savedTaskId
-      ? `${API_BASE}/database_build/progress/${savedTaskId}`
-      : `${API_BASE}/database_build/latest?kb_id=${encodeURIComponent(params.kbId || knowledge.id)}`;
-
-    fetch(endpoint)
-      .then((response) => (response.ok ? response.json() : Promise.reject(response)))
-      .then((data: DatabaseBuildProgress) => {
-        applyBuildProgress(data);
-        if (["completed", "failed", "partial_failed"].includes(data.status)) {
-          setStatus(data.status === "completed" ? "completed" : "failed");
-        }
-      })
-      .catch(() => undefined);
-  }, [applyBuildProgress, knowledge.id, params.kbId, taskStorageKey]);
-
-  React.useEffect(() => {
-    if (!taskId || status !== "building") return undefined;
-
-    const timer = window.setInterval(() => {
-      fetch(`${API_BASE}/database_build/progress/${taskId}`)
-        .then((response) => (response.ok ? response.json() : Promise.reject(response)))
-        .then((data: DatabaseBuildProgress) => {
-          applyBuildProgress(data);
-          if (["completed", "failed", "partial_failed"].includes(data.status)) {
-            setStatus(data.status === "completed" ? "completed" : "failed");
-            setMessage(data.status === "completed" ? "数据库构建完成，已写入 Milvus。" : "构建结束，但存在失败文档。");
-          }
-        })
-        .catch(() => {
-          setStatus("failed");
-          setMessage("无法获取构建进度，请检查后端服务。");
-        });
-    }, 1200);
-
-    return () => window.clearInterval(timer);
-  }, [applyBuildProgress, status, taskId]);
-
-  const uploadFiles = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(event.target.files ?? []);
-    if (!selectedFiles.length) return;
-
-    const formData = new FormData();
-    selectedFiles.forEach((file) => formData.append("files", file));
-    setStatus("uploading");
-    setMessage(`正在上传 ${selectedFiles.length} 个文件...`);
-
-    try {
-      const response = await fetch(`${API_BASE}/files/upload`, { method: "POST", body: formData });
-      if (!response.ok) throw new Error(await response.text());
-      const data = (await response.json()) as { files: Array<Parameters<typeof toUploadedDocument>[0]> };
-      onDocumentsChange((current) => [
-        ...data.files.map((file) => ({ ...toUploadedDocument(file), selected: true })),
-        ...current,
-      ]);
-      setActiveTab("build");
-      setStatus("idle");
-      setMessage("上传完成，已自动选中新文件。");
-    } catch (error) {
-      setStatus("failed");
-      setMessage(error instanceof Error ? error.message : "上传失败，请检查后端服务。");
-    } finally {
-      event.target.value = "";
-    }
+  const toggleDocument = (id: string) => {
+    setDocuments((current) =>
+      current.map((doc) => (doc.id === id ? { ...doc, selected: !doc.selected } : doc)),
+    );
   };
 
   const startBuild = async () => {
-    const selectedFiles = documents.filter((file) => file.selected);
-    if (!selectedFiles.length) {
-      setMessage("请至少选择一个文件。");
+    const kbId = builderKbId.trim();
+    const selectedFiles = documents.filter((doc) => doc.selected).map((doc) => doc.path);
+
+    setBuilderError("");
+
+    if (!kbId) {
+      setBuilderError("请填写知识库 ID");
+      return;
+    }
+    if (selectedFiles.length === 0) {
+      setBuilderError("请先勾选至少一个文件");
       return;
     }
 
-    setStatus("building");
-    setMessage("已提交构建任务，正在等待进度回传...");
-    setCurrentBuildFiles(
-      selectedFiles.map((file) => ({
-        path: file.path,
-        stage: "queued",
-        state: "排队中",
-        progress: 0,
-      })),
-    );
-
+    setBuilderLoading(true);
+    setBuilderTask(null);
     try {
-      const response = await fetch(`${API_BASE}/database_build/submit`, {
+      const resp = await fetch(apiUrl("/database_build/submit"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          file_paths: selectedFiles.map((file) => file.path),
-          kb_id: params.kbId || knowledge.id,
-          user_id: params.userId,
-          milvus_db: params.milvusDb,
-          output_root: params.outputRoot,
-          gpus: params.gpus.split(",").map((gpu) => gpu.trim()).filter(Boolean),
-          workers_per_gpu: params.workersPerGpu,
-          method: params.method,
-          lang: params.lang || null,
-          backend: params.backend,
-          start_page: params.startPage ? Number(params.startPage) : null,
-          end_page: params.endPage ? Number(params.endPage) : null,
-          formula: params.formula,
-          table: params.table,
-          source: params.kbId || knowledge.id,
-          vector_concurrency: params.vectorConcurrency,
-          max_chunk_chars: params.maxChunkChars,
-          chunk_overlap_chars: params.chunkOverlapChars,
-          embedding_model: params.embeddingModel,
+          file_paths: selectedFiles,
+          kb_id: kbId,
+          user_id: DEFAULT_USER_ID,
+          milvus_db: DEFAULT_MILVUS_DB,
+          output_root: "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output",
+          gpus: mineruGpus
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean),
+          workers_per_gpu: workersPerGpu,
+          extract_concurrency: extractConcurrency,
+          embedding_concurrency: embeddingConcurrency,
+          max_chunk_chars: maxChunkChars,
+          chunk_overlap_chars: chunkOverlapChars,
         }),
       });
-      if (!response.ok) throw new Error(await response.text());
-      const data = (await response.json()) as { task_id: string };
-      setTaskId(data.task_id);
-      window.localStorage.setItem(taskStorageKey, data.task_id);
-      loadBuiltLibraries();
-    } catch (error) {
-      setStatus("failed");
-      setMessage(error instanceof Error ? error.message : "构建任务提交失败。");
+      if (!resp.ok) {
+        const errorText = await resp.text();
+        throw new Error(errorText || "启动构建失败");
+      }
+      const data = await resp.json();
+      if (!data?.task_id) {
+        throw new Error("后端没有返回 task_id");
+      }
+      await pollBuildProgress(data.task_id);
+    } catch (e: any) {
+      setBuilderError("错误: " + e.message);
+    } finally {
+      setBuilderLoading(false);
     }
   };
 
-  const updateSelection = (id: string, selected: boolean) => {
-    onDocumentsChange((current) =>
-      current.map((file) => (file.id === id ? { ...file, selected } : file)),
-    );
-  };
+  const runTraceSearch = React.useCallback(async () => {
+    if (!selectedKbId || !queryText.trim()) return;
+    setQueryLoading(true);
+    setQueryError("");
+    try {
+      const response = await fetch(apiUrl("/api/search/trace"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: queryText,
+          user_id: DEFAULT_USER_ID,
+          kb_id: selectedKbId,
+          mode: "hybrid",
+          top_k: 12,
+          entity_top_k: 10,
+          relation_top_k: 14,
+          expansion_degree: 2,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error("查询失败");
+      }
+      const data = (await response.json()) as SearchTrace;
+      setQueryTrace(data);
+    } catch {
+      setQueryTrace(null);
+      setQueryError("查询失败，请检查后端搜索服务与向量库连接。");
+    } finally {
+      setQueryLoading(false);
+    }
+  }, [queryText, selectedKbId]);
 
   return (
-    <section className="content-panel">
-      <div className="knowledge-header">
-        <div>
-          <button className="back-link" onClick={onBackToList}>
-            <ArrowLeft size={16} />
-            全部知识库
-          </button>
-          <div className="title-row">
-            <h1>数据库构建</h1>
-            <span className="tag">{knowledge.name}</span>
+    <div className="app-shell">
+      <header className="topbar">
+        <div className="brand-block">
+          <img src={appLogo} alt="NextGraph" />
+          <div>
+            <strong>NextGraph</strong>
+            <span>Knowledge Graph Workbench</span>
           </div>
-          <p>{message}</p>
         </div>
-        <div className="toolbar">
-          <button className="soft-button" onClick={() => setActiveTab("build")}>
-            <Sparkles size={16} />
-            构建数据库
+        <nav className="tab-nav">
+          <button
+            className={module === "overview" ? "active" : ""}
+            onClick={() => setModule("overview")}
+          >
+            <Database size={16} />
+            知识库总览
           </button>
-          <button className="outline-button">
-            <Filter size={16} />
-            筛选
-          </button>
-          <label className="toolbar-search">
-            <Search size={16} />
-            <input placeholder="搜索" />
-          </label>
-          <button className="outline-button">
+          <button
+            className={module === "builder" ? "active" : ""}
+            onClick={() => setModule("builder")}
+          >
             <FolderUp size={16} />
-            文件夹
+            新建知识库
           </button>
-          <label className="square-primary" aria-label="新增文件" title="上传文件">
-            <Upload size={17} />
-            <input type="file" multiple onChange={uploadFiles} />
-          </label>
+          <button
+            className={module === "query" ? "active" : ""}
+            onClick={() => setModule("query")}
+          >
+            <MessageSquareShare size={16} />
+            图谱问答
+          </button>
+        </nav>
+        <div className="status-chip">
+          <span className="dot" />
+          系统就绪
+          <small style={{ opacity: 0.5, marginLeft: "6px", fontSize: "11px" }}>
+            ({DEFAULT_MILVUS_DB})
+          </small>
         </div>
-      </div>
+      </header>
 
-      <div className="workspace-tabs">
-        <button className={activeTab === "upload" ? "active" : ""} onClick={() => setActiveTab("upload")}>
-          <Upload size={16} />
-          上传文件
-        </button>
-        <button className={activeTab === "build" ? "active" : ""} onClick={() => setActiveTab("build")}>
-          <Database size={16} />
-          构建数据库
-        </button>
-      </div>
+      <main className="workspace">
+        {module === "overview" && (
+          <OverviewModule
+            catalog={catalog}
+            catalogLoading={catalogLoading}
+            overview={overview}
+            overviewLoading={overviewLoading}
+            selectedKbId={selectedKbId}
+            onSelectKb={(kbId) => {
+              setSelectedKbId(kbId);
+              setBuilderKbId(kbId);
+            }}
+            onJump={(next) => setModule(next)}
+          />
+        )}
 
-      {activeTab === "upload" ? (
-        <UploadPanel
-          status={status}
-          documents={documents}
-          onUpload={uploadFiles}
-          onGoBuild={() => setActiveTab("build")}
-        />
-      ) : (
-        <>
-          <BuiltLibraryPanel
-            libraries={builtLibraries}
-            currentTaskId={taskId}
-            onOpenTask={openBuildTask}
-          />
-          <DatabaseVisualPanel
-            libraries={builtLibraries}
-            currentTaskId={taskId}
-            onOpenTask={openBuildTask}
-          />
-          <BuildControlPanel
-            params={params}
-            selectedCount={selectedCount}
-            status={status}
-            onParamsChange={setParams}
+        {module === "builder" && (
+          <BuilderModule
+            builderKbId={builderKbId}
+            mineruGpus={mineruGpus}
+            workersPerGpu={workersPerGpu}
+            extractConcurrency={extractConcurrency}
+            embeddingConcurrency={embeddingConcurrency}
+            maxChunkChars={maxChunkChars}
+            chunkOverlapChars={chunkOverlapChars}
+            onBuilderKbIdChange={setBuilderKbId}
+            onMineruGpusChange={setMineruGpus}
+            onWorkersPerGpuChange={setWorkersPerGpu}
+            onExtractConcurrencyChange={setExtractConcurrency}
+            onEmbeddingConcurrencyChange={setEmbeddingConcurrency}
+            onMaxChunkCharsChange={setMaxChunkChars}
+            onChunkOverlapCharsChange={setChunkOverlapChars}
+            documents={documents}
+            task={builderTask}
+            error={builderError}
+            loading={builderLoading}
+            onUpload={handleUpload}
+            onToggleDocument={toggleDocument}
             onStartBuild={startBuild}
           />
-          <FileTable
-            files={documents}
-            buildFiles={currentBuildFiles}
-            onSelectionChange={updateSelection}
+        )}
+
+        {module === "query" && (
+          <QueryModule
+            selectedKbId={selectedKbId}
+            catalog={catalog}
+            trace={queryTrace}
+            loading={queryLoading}
+            query={queryText}
+            queryError={queryError}
+            graphStage={queryGraphStage}
+            onSelectKb={setSelectedKbId}
+            onQueryChange={setQueryText}
+            onGraphStageChange={setQueryGraphStage}
+            onSearch={runTraceSearch}
           />
-        </>
-      )}
-    </section>
-  );
-}
-
-function ConversationKnowledgePicker({
-  title,
-  knowledgeBases,
-  onCreateKnowledge,
-  onOpenKnowledge,
-  onRenameKnowledge,
-}: {
-  title: string;
-  knowledgeBases: KnowledgeBase[];
-  onCreateKnowledge: () => void;
-  onOpenKnowledge: (id: string) => void;
-  onRenameKnowledge: (id: string, name: string) => void;
-}) {
-  return (
-    <main className="home page-shell">
-      <section className="picker-hero">
-        <span className="eyebrow">
-          <BookOpen size={16} />
-          Knowledge Bases
-        </span>
-        <h1>{title}</h1>
-        <p>选择一个知识库，继续上传文件、构建数据库，或进入问答与搜索。</p>
-      </section>
-      <KnowledgeGrid
-        title={title}
-        knowledgeBases={knowledgeBases}
-        onCreateKnowledge={onCreateKnowledge}
-        onOpenKnowledge={onOpenKnowledge}
-        onRenameKnowledge={onRenameKnowledge}
-      />
-    </main>
-  );
-}
-
-function SearchWorkspace({
-  knowledgeBases,
-  selectedKnowledgeId,
-  onBackToKnowledgeList,
-}: {
-  knowledgeBases: KnowledgeBase[];
-  selectedKnowledgeId: string;
-  onBackToKnowledgeList: () => void;
-}) {
-  const selectedKnowledge =
-    knowledgeBases.find((knowledge) => knowledge.id === selectedKnowledgeId) ?? knowledgeBases[0];
-
-  return (
-    <main className="search-page">
-      <div className="search-workspace">
-        <button className="back-link" onClick={onBackToKnowledgeList}>
-          <ArrowLeft size={16} />
-          全部搜索
-        </button>
-        <div className="search-title">
-          <span className={`letter-icon small ${selectedKnowledge?.tone ?? "green"}`}>
-            {selectedKnowledge?.name[0] ?? "知"}
-          </span>
-          <div>
-            <h1>搜索</h1>
-            <p>{selectedKnowledge?.name ?? "暂无知识库"}</p>
-          </div>
-        </div>
-        <label className="big-search">
-          <Search size={22} />
-          <input placeholder="搜索知识库内容..." />
-        </label>
-      </div>
-    </main>
-  );
-}
-
-function UploadPanel({
-  status,
-  documents,
-  onUpload,
-  onGoBuild,
-}: {
-  status: BuildStatus;
-  documents: UploadedDocument[];
-  onUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onGoBuild: () => void;
-}) {
-  return (
-    <div className="upload-grid">
-      <label className="upload-drop">
-        <Upload size={30} />
-        <strong>{status === "uploading" ? "正在上传..." : "选择文件上传到服务器"}</strong>
-        <span>支持 PDF、Word、PPT、Excel、Markdown、TXT、JSON，可多选上传。</span>
-        <input type="file" multiple onChange={onUpload} />
-      </label>
-      <div className="upload-summary">
-        <div className="summary-card">
-          <FileText size={20} />
-          <span>服务器文件</span>
-          <strong>{documents.length}</strong>
-        </div>
-        <div className="summary-card">
-          <Check size={20} />
-          <span>已选构建</span>
-          <strong>{documents.filter((file) => file.selected).length}</strong>
-        </div>
-        <button className="primary-small" onClick={onGoBuild}>
-          <Database size={16} />
-          去构建
-        </button>
-      </div>
+        )}
+      </main>
     </div>
   );
 }
 
-function BuildControlPanel({
-  params,
-  selectedCount,
-  status,
-  onParamsChange,
-  onStartBuild,
+function OverviewModule({
+  catalog,
+  catalogLoading,
+  overview,
+  overviewLoading,
+  selectedKbId,
+  onSelectKb,
+  onJump,
 }: {
-  params: BuildParams;
-  selectedCount: number;
-  status: BuildStatus;
-  onParamsChange: React.Dispatch<React.SetStateAction<BuildParams>>;
-  onStartBuild: () => void;
+  catalog: LibraryRecord[];
+  catalogLoading: boolean;
+  overview: LibraryOverview | null;
+  overviewLoading: boolean;
+  selectedKbId: string;
+  onSelectKb: (kbId: string) => void;
+  onJump: (module: ModuleKey) => void;
 }) {
-  const disabled = status === "building" || status === "uploading";
-
-  const update = <Key extends keyof BuildParams>(key: Key, value: BuildParams[Key]) => {
-    onParamsChange((current) => ({ ...current, [key]: value }));
-  };
-
-  return (
-    <div className="build-panel">
-      <div className="build-panel-head">
-        <div>
-          <span>
-            <SlidersHorizontal size={16} />
-            构建参数
-          </span>
-          <strong>已选择 {selectedCount} 个文件</strong>
-        </div>
-        <button className="primary-small" onClick={onStartBuild} disabled={disabled}>
-          {status === "building" ? <RefreshCw size={16} /> : <Play size={16} />}
-          {status === "building" ? "构建中" : "开始构建"}
-        </button>
-      </div>
-      <div className="param-grid">
-        <label>
-          <span>知识库 ID</span>
-          <input value={params.kbId} onChange={(event) => update("kbId", event.target.value)} />
-        </label>
-        <label>
-          <span>用户 ID</span>
-          <input value={params.userId} onChange={(event) => update("userId", event.target.value)} />
-        </label>
-        <label>
-          <span>Milvus DB</span>
-          <input list="milvus-db-options" value={params.milvusDb} onChange={(event) => update("milvusDb", event.target.value)} />
-          <datalist id="milvus-db-options">
-            <option value="crx" />
-            <option value="default" />
-            <option value="nextgraph" />
-          </datalist>
-        </label>
-        <label>
-          <span>输出目录</span>
-          <input value={params.outputRoot} onChange={(event) => update("outputRoot", event.target.value)} />
-        </label>
-        <label>
-          <span>GPU</span>
-          <input value={params.gpus} onChange={(event) => update("gpus", event.target.value)} />
-        </label>
-        <label>
-          <span>每 GPU Worker</span>
-          <input
-            type="number"
-            min={1}
-            max={16}
-            value={params.workersPerGpu}
-            onChange={(event) => update("workersPerGpu", Number(event.target.value))}
-          />
-        </label>
-        <label>
-          <span>解析方式</span>
-          <select value={params.method} onChange={(event) => update("method", event.target.value as BuildParams["method"])}>
-            <option value="auto">auto</option>
-            <option value="txt">txt</option>
-            <option value="ocr">ocr</option>
-          </select>
-        </label>
-        <label>
-          <span>后端</span>
-          <input list="mineru-backend-options" value={params.backend} onChange={(event) => update("backend", event.target.value)} />
-          <datalist id="mineru-backend-options">
-            <option value="pipeline" />
-          </datalist>
-        </label>
-        <label>
-          <span>语言</span>
-          <input list="mineru-lang-options" value={params.lang} onChange={(event) => update("lang", event.target.value)} />
-          <datalist id="mineru-lang-options">
-            <option value="ch" />
-            <option value="en" />
-            <option value="ja" />
-            <option value="ko" />
-          </datalist>
-        </label>
-        <label>
-          <span>起始页</span>
-          <input value={params.startPage} onChange={(event) => update("startPage", event.target.value)} />
-        </label>
-        <label>
-          <span>结束页</span>
-          <input value={params.endPage} onChange={(event) => update("endPage", event.target.value)} />
-        </label>
-        <label>
-          <span>向量并发</span>
-          <input
-            type="number"
-            min={1}
-            max={64}
-            value={params.vectorConcurrency}
-            onChange={(event) => update("vectorConcurrency", Number(event.target.value))}
-          />
-        </label>
-        <label>
-          <span>分块字符</span>
-          <input
-            type="number"
-            min={200}
-            max={12000}
-            value={params.maxChunkChars}
-            onChange={(event) => update("maxChunkChars", Number(event.target.value))}
-          />
-        </label>
-        <label>
-          <span>分块重叠</span>
-          <input
-            type="number"
-            min={0}
-            max={4000}
-            value={params.chunkOverlapChars}
-            onChange={(event) => update("chunkOverlapChars", Number(event.target.value))}
-          />
-        </label>
-        <label>
-          <span>Embedding</span>
-          <input
-            value={params.embeddingModel}
-            onChange={(event) => update("embeddingModel", event.target.value)}
-          />
-        </label>
-        <label className="toggle-field">
-          <input
-            type="checkbox"
-            checked={params.formula}
-            onChange={(event) => update("formula", event.target.checked)}
-          />
-          <span>公式解析</span>
-        </label>
-        <label className="toggle-field">
-          <input
-            type="checkbox"
-            checked={params.table}
-            onChange={(event) => update("table", event.target.checked)}
-          />
-          <span>表格解析</span>
-        </label>
-      </div>
-    </div>
+  const [graphMode, setGraphMode] = React.useState<"2D" | "3D">("2D");
+  const [overviewGraphRef, overviewGraphSize] = useElementSize<HTMLDivElement>();
+  const overviewGraphInstanceRef = React.useRef<any>(null);
+  const totals = catalog.reduce(
+    (acc, item) => ({
+      libraries: acc.libraries + 1,
+      files: acc.files + item.file_count,
+      entities: acc.entities + item.entity_count,
+      relations: acc.relations + item.relation_count,
+    }),
+    { libraries: 0, files: 0, entities: 0, relations: 0 },
   );
-}
 
-function BuiltLibraryPanel({
-  libraries,
-  currentTaskId,
-  onOpenTask,
-}: {
-  libraries: BuiltLibrary[];
-  currentTaskId: string | null;
-  onOpenTask: (taskId: string) => void;
-}) {
-  if (!libraries.length) {
-    return (
-      <div className="built-library-panel empty">
-        <Database size={17} />
-        <span>当前知识库还没有构建记录</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="built-library-panel">
-      <div className="built-library-head">
-        <span>
-          <Database size={16} />
-          已构建记录
-        </span>
-        <strong>{libraries.length}</strong>
-      </div>
-      <div className="built-library-list">
-        {libraries.slice(0, 4).map((item) => (
-          <button
-            className={item.task_id === currentTaskId ? "built-library active" : "built-library"}
-            key={item.task_id}
-            onClick={() => onOpenTask(item.task_id)}
-          >
-            <div>
-              <strong>{item.milvus_db}</strong>
-              <span>{item.completed}/{item.file_count} 文件 · {Math.round(item.progress_percent)}%</span>
-            </div>
-            <span className={item.status === "completed" ? "done" : "processing"}>
-              {item.status === "completed" ? "已入库" : item.status === "running" ? "构建中" : "有失败"}
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function DatabaseVisualPanel({
-  libraries,
-  currentTaskId,
-  onOpenTask,
-}: {
-  libraries: BuiltLibrary[];
-  currentTaskId: string | null;
-  onOpenTask: (taskId: string) => void;
-}) {
-  const selectedLibrary =
-    libraries.find((item) => item.task_id === currentTaskId) ??
-    libraries.find((item) => item.status === "completed") ??
-    libraries[0];
-  const [inspection, setInspection] = React.useState<LibraryInspection | null>(null);
-  const [queryText, setQueryText] = React.useState("");
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState("");
-
-  const loadInspection = React.useCallback(() => {
-    if (!selectedLibrary) return;
-    setLoading(true);
-    setError("");
-    const params = new URLSearchParams({
-      user_id: selectedLibrary.user_id,
-      milvus_db: selectedLibrary.milvus_db,
-      limit: "8",
+  const graph = React.useMemo(() => {
+    const raw = overview?.milvus_preview?.graph_preview || { nodes: [], links: [] };
+    return prepareGraphData(raw.nodes, raw.links, {
+      densityMode: "balanced",
+      preferredNodeLimit: 18,
+      preferredLinkLimit: 16,
     });
-    fetch(`${API_BASE}/database_build/library/${encodeURIComponent(selectedLibrary.kb_id)}?${params}`)
-      .then((response) => (response.ok ? response.json() : Promise.reject(response)))
-      .then((data: LibraryInspection) => setInspection(data))
-      .catch(() => {
-        setInspection(null);
-        setError("无法读取 Milvus 数据，请确认后端能访问目标数据库。");
-      })
-      .finally(() => setLoading(false));
-  }, [selectedLibrary]);
+  }, [overview]);
 
   React.useEffect(() => {
-    loadInspection();
-  }, [loadInspection]);
-
-  if (!selectedLibrary) {
-    return (
-      <div className="db-visual-panel empty">
-        <Database size={17} />
-        <span>暂无可访问的构建数据库</span>
-      </div>
-    );
-  }
-
-  const collections = inspection?.collections;
-  const lowerQuery = queryText.trim().toLowerCase();
-  const filterRows = (rows: Array<Record<string, unknown>>) => {
-    if (!lowerQuery) return rows;
-    return rows.filter((row) => JSON.stringify(row).toLowerCase().includes(lowerQuery));
-  };
+    if (!overviewGraphInstanceRef.current || graphMode !== "2D" || graph.nodes.length === 0) return;
+    configureGraphForces(overviewGraphInstanceRef.current, "balanced");
+    overviewGraphInstanceRef.current.__selectedRelationId = null;
+    const timer = window.setTimeout(() => {
+      overviewGraphInstanceRef.current?.zoomToFit?.(600, 80);
+      overviewGraphInstanceRef.current?.centerAt?.();
+    }, 200);
+    return () => window.clearTimeout(timer);
+  }, [graph.links.length, graph.nodes.length, graphMode]);
 
   return (
-    <div className="db-visual-panel">
-      <div className="db-visual-head">
+    <section className="module-grid">
+      <div className="hero-panel">
         <div>
-          <span>
-            <Database size={16} />
-            数据库可视化
-          </span>
-          <strong>
-            {selectedLibrary.milvus_db} / {selectedLibrary.kb_id}
-          </strong>
+          <span className="eyebrow">Knowledge Base</span>
+          <h1>知识资产全景洞察</h1>
+          <p>实时监控多个知识库的数据规模、图谱体量与连接状态，从宏观视角掌控您的图谱生态。</p>
         </div>
-        <div className="db-visual-actions">
-          <label className="db-visual-search">
-            <Search size={15} />
-            <input
-              value={queryText}
-              placeholder="过滤样本"
-              onChange={(event) => setQueryText(event.target.value)}
-            />
-          </label>
-          <button className="outline-button" onClick={() => onOpenTask(selectedLibrary.task_id)}>
-            查看进度
+        <div className="hero-actions">
+          <button onClick={() => onJump("builder")}>
+            <Zap size={16} />
+            新建并构建
           </button>
-          <button className="primary-small" onClick={loadInspection} disabled={loading}>
-            <RefreshCw size={15} />
-            刷新
+          <button className="ghost" onClick={() => onJump("query")}>
+            <Search size={16} />
+            进入问答
           </button>
         </div>
       </div>
 
-      {error ? <div className="db-visual-error">{error}</div> : null}
-
-      {collections ? (
-        <div className="db-collection-grid">
-          {(["entities", "relations", "passages"] as const).map((key) => (
-            <CollectionPreview
-              key={key}
-              title={key === "entities" ? "实体" : key === "relations" ? "关系" : "段落"}
-              data={collections[key]}
-              rows={filterRows(collections[key].samples)}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="db-visual-loading">{loading ? "正在读取数据库..." : "暂无可展示数据"}</div>
-      )}
-    </div>
-  );
-}
-
-function CollectionPreview({
-  title,
-  data,
-  rows,
-}: {
-  title: string;
-  data: LibraryCollectionView;
-  rows: Array<Record<string, unknown>>;
-}) {
-  return (
-    <section className="collection-preview">
-      <div className="collection-preview-head">
-        <div>
-          <strong>{title}</strong>
-          <span>{data.collection}</span>
-        </div>
-        <b>{data.matched_count ?? data.sample_count}</b>
+      <div className="metric-strip">
+        <MetricCard title="知识库数量" value={String(totals.libraries)} />
+        <MetricCard title="文件总数" value={String(totals.files)} />
+        <MetricCard title="实体总数" value={String(totals.entities)} />
+        <MetricCard title="关系总数" value={String(totals.relations)} />
       </div>
-      <div className="collection-samples">
-        {rows.length ? (
-          rows.slice(0, 5).map((row, index) => <SampleRow key={`${data.collection}-${index}`} row={row} />)
-        ) : (
-          <span className="empty-sample">没有匹配样本</span>
-        )}
+
+      <div className="overview-layout">
+        <section className="library-list panel">
+          <div className="panel-head">
+            <h2>知识库目录</h2>
+            <span>{catalog.length} 个库</span>
+          </div>
+          {catalogLoading ? (
+            <div className="empty-panel">正在读取知识库目录…</div>
+          ) : (
+            <div className="library-cards">
+              {catalog.map((item) => (
+                <button
+                  key={item.kb_id}
+                  className={`library-card ${item.kb_id === selectedKbId ? "selected" : ""}`}
+                  onClick={() => onSelectKb(item.kb_id)}
+                >
+                  <div className="card-main">
+                    <div className="card-icon-area">
+                      <div className="hex-icon">
+                        <Database size={20} />
+                      </div>
+                    </div>
+                    <div className="card-info">
+                      <div className="card-row">
+                        <strong>{item.kb_id}</strong>
+                        <span className={`pill ${statusTone(item.latest_status)}`}>{item.latest_status}</span>
+                      </div>
+                      <span className="latest-msg">{item.latest_message}</span>
+                    </div>
+                  </div>
+                  <div className="library-metrics">
+                    <label>文件 {item.file_count}</label>
+                    <label>实体 {item.entity_count}</label>
+                    <label>关系 {item.relation_count}</label>
+                  </div>
+                  <div className="library-progress">
+                    <div className="progress-track">
+                      <div style={{ width: `${item.completion_ratio * 100}%` }} />
+                    </div>
+                    <span>最近更新 {formatTime(item.updated_at)}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="library-detail panel">
+          <div className="panel-head">
+            <h2>知识库画像</h2>
+            <span>{overview?.kb_id || selectedKbId || "未选择"}</span>
+          </div>
+          <div className="library-detail-scroll">
+            {overviewLoading ? (
+              <div className="empty-panel">正在读取图谱概览…</div>
+            ) : !overview ? (
+              <div className="empty-panel">选择一个知识库查看详情。</div>
+            ) : (
+              <>
+              <div className="detail-stats">
+                <MetricCard title="文档" value={String(overview.summary.file_count)} compact />
+                <MetricCard
+                  title="实体"
+                  value={String(overview.milvus_preview?.counts.entities ?? overview.summary.entity_count)}
+                  compact
+                />
+                <MetricCard
+                  title="关系"
+                  value={String(overview.milvus_preview?.counts.relations ?? overview.summary.relation_count)}
+                  compact
+                />
+                <MetricCard
+                  title="段落证据"
+                  value={String(overview.milvus_preview?.counts.passages ?? 0)}
+                  compact
+                />
+              </div>
+
+              <div className="detail-body">
+                <div className="preview-card">
+                  <div className="subhead">
+                    <span>图谱预览</span>
+                    <div className="graph-panel-meta">
+                    <button
+                      className="graph-mode-toggle"
+                      onClick={() => setGraphMode(graphMode === "2D" ? "3D" : "2D")}
+                    >
+                      <span className={`graph-mode-badge ${graphMode === "3D" ? "mode-3d" : "mode-2d"}`}>
+                        {graphMode}
+                      </span>
+                    </button>
+                    </div>
+                  </div>
+                <div className="mini-graph" ref={overviewGraphRef}>
+                  {overviewGraphSize.width > 0 ? (
+                  graphMode === "2D" ? (
+                  <ForceGraph2D
+                    ref={overviewGraphInstanceRef}
+                    graphData={graph}
+                    backgroundColor="transparent"
+                    width={overviewGraphSize.width}
+                    height={320}
+                    nodeRelSize={7}
+                    nodeVal={(node) => (node as PreparedGraphNode).val}
+                    cooldownTicks={0}
+                    warmupTicks={80}
+                    d3AlphaDecay={0.035}
+                    d3VelocityDecay={0.26}
+                    minZoom={0.3}
+                    maxZoom={5}
+                    nodeColor={(node) => ((node as PreparedGraphNode).color || "#5fe3c1")}
+                    linkColor={() => "rgba(103, 204, 255, 0.28)"}
+                    linkDirectionalParticles={1}
+                    linkDirectionalParticleWidth={1.2}
+                    linkDirectionalParticleSpeed={0.007}
+                    onEngineStop={() => {
+                      overviewGraphInstanceRef.current?.zoomToFit?.(500, 80);
+                    }}
+                    nodeCanvasObject={(node, ctx, globalScale) => {
+                      const graphNode = node as PreparedGraphNode;
+                      const label = graphNode.displayLabel;
+                      const fontSize = Math.max(11 / globalScale, 4);
+                      ctx.font = `${fontSize}px "Space Grotesk", sans-serif`;
+
+                      const r = Math.max(graphNode.is_seed ? 8 : 5.5, graphNode.val / 1.8);
+                      ctx.beginPath();
+                      ctx.arc(node.x!, node.y!, r, 0, 2 * Math.PI, false);
+                      ctx.fillStyle = graphNode.color || "#5fe3c1";
+                      ctx.shadowBlur = 18 / globalScale;
+                      ctx.shadowColor = graphNode.color || "#5fe3c1";
+                      ctx.fill();
+                      ctx.shadowBlur = 0;
+
+                      if (!shouldRenderNodeLabel(graphNode, globalScale)) return;
+                      const textWidth = ctx.measureText(label).width;
+                      const bckgDimensions = [textWidth, fontSize].map((n) => n + fontSize * 0.55);
+
+                      ctx.fillStyle = "rgba(5, 10, 20, 0.75)";
+                      ctx.fillRect(
+                        node.x! - bckgDimensions[0] / 2,
+                        node.y! + r + 4,
+                        bckgDimensions[0],
+                        bckgDimensions[1],
+                      );
+                      ctx.textAlign = "center";
+                      ctx.textBaseline = "top";
+                      ctx.fillStyle = "#ffffff";
+                      ctx.fillText(label, node.x!, node.y! + r + 5);
+                    }}
+                    nodePointerAreaPaint={(node, color, ctx) => {
+                      ctx.fillStyle = color;
+                      ctx.beginPath();
+                      ctx.arc(node.x!, node.y!, 11, 0, 2 * Math.PI, false);
+                      ctx.fill();
+                    }}
+                    linkCanvasObjectMode={() => "after"}
+                    linkCanvasObject={(link, ctx, globalScale) => {
+                      const fontSize = Math.min(9, 11 / globalScale);
+                      ctx.font = `${fontSize}px Sans-Serif`;
+
+                      const start = link.source as any;
+                      const end = link.target as any;
+                      if (typeof start !== "object" || typeof end !== "object") return;
+
+                      const rel = (link as any).label || "";
+                      const textPos = {
+                        x: start.x + (end.x - start.x) * 0.5,
+                        y: start.y + (end.y - start.y) * 0.5
+                      };
+
+                      const textAngle = Math.atan2(end.y - start.y, end.x - start.x);
+
+                      const dist = Math.hypot(end.x - start.x, end.y - start.y);
+                      if (dist < 90 || globalScale < 0.9) return;
+
+                      ctx.save();
+                      ctx.translate(textPos.x, textPos.y);
+                      ctx.rotate(textAngle);
+                      ctx.textAlign = "center";
+                      ctx.textBaseline = "middle";
+                      ctx.fillStyle = "rgba(160, 210, 255, 0.72)";
+                      ctx.fillText(rel, 0, -2);
+                      ctx.restore();
+                    }}
+                  />
+                  ) : (
+                  <ForceGraph3D
+                    backgroundColor="rgba(0,0,0,0)"
+                    graphData={graph}
+                    width={overviewGraphSize.width}
+                    height={320}
+                    nodeRelSize={7}
+                    nodeVal={(node) => (node as PreparedGraphNode).val}
+                    nodeColor={(node) => ((node as PreparedGraphNode).color || "#5fe3c1")}
+                    linkColor={() => "rgba(103, 204, 255, 0.4)"}
+                    linkDirectionalParticles={1}
+                    nodeThreeObject={(node) => {
+                      const graphNode = node as PreparedGraphNode;
+                      const label = shouldRenderNodeLabel(graphNode, 1.2) ? graphNode.displayLabel : "";
+                      const isSeed = Boolean(graphNode.is_seed);
+                      const sprite = new SpriteText(label);
+                      sprite.color = graphNode.color || (isSeed ? "#f9d66b" : "#5fe3c1");
+                      sprite.textHeight = isSeed ? 10 : 6.5;
+                      sprite.padding = 2;
+                      sprite.backgroundColor = "rgba(5, 11, 20, 0.75)";
+                      sprite.borderRadius = 2;
+                      return sprite;
+                    }}
+                    nodeThreeObjectExtend={true}
+                  />
+                  )
+                  ) : null}
+                </div>
+                </div>
+
+                <div className="preview-card">
+                  <div className="subhead">
+                    <span>高连接实体</span>
+                    <span>样本 Top</span>
+                  </div>
+                  <div className="ranking-list">
+                    {(overview.milvus_preview?.top_entities || []).slice(0, 6).map((item) => (
+                      <div key={item.id} className="ranking-row">
+                        <strong>{item.name}</strong>
+                        <div>
+                          <div className="mini-bar">
+                            <div style={{ width: `${Math.min(item.relation_count * 10, 100)}%` }} />
+                          </div>
+                          <span>{item.relation_count} 关系</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {overview.summary.source_documents?.length ? (
+                <div className="source-grid">
+                  {overview.summary.source_documents.map((doc) => (
+                    <div key={doc.path} className="source-card">
+                      <strong>{doc.name}</strong>
+                      <span>{doc.state}</span>
+                      <small>
+                        chunks {doc.summary?.chunks || 0} / entities {doc.summary?.entities || 0} / relations{" "}
+                        {doc.summary?.relations || 0}
+                      </small>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              </>
+            )}
+          </div>
+        </section>
       </div>
     </section>
   );
 }
 
-function SampleRow({ row }: { row: Record<string, unknown> }) {
-  const primary =
-    String(row.name ?? row.relation ?? row.passage ?? row.id ?? "").slice(0, 120) || "未命名记录";
-  const secondary = String(row.id ?? row.docment_id ?? "").slice(0, 80);
-
+function BuilderModule({
+  builderKbId,
+  mineruGpus,
+  workersPerGpu,
+  extractConcurrency,
+  embeddingConcurrency,
+  maxChunkChars,
+  chunkOverlapChars,
+  onMineruGpusChange,
+  onWorkersPerGpuChange,
+  onExtractConcurrencyChange,
+  onEmbeddingConcurrencyChange,
+  onMaxChunkCharsChange,
+  onChunkOverlapCharsChange,
+  onBuilderKbIdChange,
+  documents,
+  task,
+  error,
+  loading,
+  onUpload,
+  onToggleDocument,
+  onStartBuild,
+}: {
+  builderKbId: string;
+  mineruGpus: string;
+  workersPerGpu: number;
+  extractConcurrency: number;
+  embeddingConcurrency: number;
+  maxChunkChars: number;
+  chunkOverlapChars: number;
+  onBuilderKbIdChange: (value: string) => void;
+  onMineruGpusChange: (value: string) => void;
+  onWorkersPerGpuChange: (value: number) => void;
+  onExtractConcurrencyChange: (value: number) => void;
+  onEmbeddingConcurrencyChange: (value: number) => void;
+  onMaxChunkCharsChange: (value: number) => void;
+  onChunkOverlapCharsChange: (value: number) => void;
+  documents: UploadedDocument[];
+  task: DatabaseBuildProgress | null;
+  error: string;
+  loading: boolean;
+  onUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onToggleDocument: (id: string) => void;
+  onStartBuild: () => void;
+}) {
   return (
-    <article className="sample-row">
-      <strong>{primary}</strong>
-      {secondary ? <span>{secondary}</span> : null}
-    </article>
+    <section className="builder-layout">
+      <div className="hero-panel">
+        <div>
+          <span className="eyebrow">Data Pipeline</span>
+          <h1>自动构建知识图谱</h1>
+          <p>上传非结构化业务文档，系统将自动执行解析、实体抽取与向量化，为您无缝构建结构化图谱网络。</p>
+        </div>
+        <div className="hero-actions">
+          <label className="upload-button">
+            <Upload size={16} />
+            上传文件
+            <input type="file" multiple onChange={onUpload} />
+          </label>
+          <button onClick={onStartBuild} disabled={loading}>
+            {loading ? <RefreshCw size={16} className="spin" /> : <Sparkles size={16} />}
+            {loading ? "正在启动..." : "开始构建"}
+          </button>
+        </div>
+      </div>
+
+      <div className="builder-top">
+        <section className="panel builder-form">
+          <div className="panel-head">
+            <h2>知识库配置</h2>
+            <span>{DEFAULT_MILVUS_DB}</span>
+          </div>
+          <label className="field">
+            知识库 ID
+            <input
+              value={builderKbId}
+              onChange={(event) => onBuilderKbIdChange(event.target.value)}
+              placeholder="例如：kb_demo"
+            />
+          </label>
+          <div className="builder-note">
+            <span>当前会写入同一个 Milvus 数据库 `{DEFAULT_MILVUS_DB}`，通过 `kb_id` 做隔离展示与检索。</span>
+          </div>
+          <details className="advanced-settings">
+            <summary>高级参数</summary>
+            <div className="advanced-settings-grid">
+              <label className="field compact-field">
+                MinerU GPU
+                <input
+                  value={mineruGpus}
+                  onChange={(event) => onMineruGpusChange(event.target.value)}
+                  placeholder="例如：0,1"
+                />
+              </label>
+              <label className="field compact-field">
+                每卡 Worker 数
+                <input
+                  type="number"
+                  min={1}
+                  max={16}
+                  value={workersPerGpu}
+                  onChange={(event) => onWorkersPerGpuChange(Number(event.target.value) || 1)}
+                />
+              </label>
+              <label className="field compact-field">
+                LLM 抽取并发
+                <input
+                  type="number"
+                  min={1}
+                  max={64}
+                  value={extractConcurrency}
+                  onChange={(event) => onExtractConcurrencyChange(Number(event.target.value) || 1)}
+                />
+              </label>
+              <label className="field compact-field">
+                Embedding 并发
+                <input
+                  type="number"
+                  min={1}
+                  max={64}
+                  value={embeddingConcurrency}
+                  onChange={(event) => onEmbeddingConcurrencyChange(Number(event.target.value) || 1)}
+                />
+              </label>
+              <label className="field compact-field">
+                分块长度
+                <input
+                  type="number"
+                  min={200}
+                  max={12000}
+                  value={maxChunkChars}
+                  onChange={(event) => onMaxChunkCharsChange(Number(event.target.value) || 200)}
+                />
+              </label>
+              <label className="field compact-field">
+                分块重叠
+                <input
+                  type="number"
+                  min={0}
+                  max={4000}
+                  value={chunkOverlapChars}
+                  onChange={(event) => onChunkOverlapCharsChange(Number(event.target.value) || 0)}
+                />
+              </label>
+            </div>
+          </details>
+          {error ? <div className="error-banner">{error}</div> : null}
+        </section>
+
+        <section className="panel build-overview">
+          <div className="panel-head">
+            <h2>当前构建进度</h2>
+            <span>{task?.status || "idle"}</span>
+          </div>
+          <div className="build-kpis">
+            <MetricCard title="总进度" value={`${Math.round(task?.progress_percent || 0)}%`} compact />
+            <MetricCard title="文件数" value={String(task?.files.length || 0)} compact />
+            <MetricCard
+              title="已完成"
+              value={String(task?.files.filter((file) => file.stage === "completed").length || 0)}
+              compact
+            />
+            <MetricCard
+              title="失败"
+              value={String(task?.files.filter((file) => file.stage === "failed").length || 0)}
+              compact
+            />
+          </div>
+          <div className="build-message">{task?.message || "选择文件后开始构建。"}</div>
+        </section>
+      </div>
+
+      <section className="panel file-panel">
+        <div className="panel-head">
+          <h2>文件处理流水线</h2>
+          <span>{documents.length} 个待选文件</span>
+        </div>
+        <div className="file-table">
+          {documents.map((doc) => {
+            const progress = task?.files.find((item) => item.path === doc.path);
+            return (
+              <div key={doc.id} className="file-row">
+                <label className="check-cell">
+                  <input
+                    type="checkbox"
+                    checked={doc.selected}
+                    onChange={() => onToggleDocument(doc.id)}
+                  />
+                  <span />
+                </label>
+                <div className="file-meta">
+                  <strong>{doc.name}</strong>
+                  <span>
+                    {doc.type} · {doc.size} · {doc.uploadedAt}
+                  </span>
+                </div>
+                <div className="pipeline-cell">
+                  <StageRail label="解析" percent={progress?.parse_progress || 0} tone="cyan" />
+                  <StageRail label="向量化" percent={progress?.vector_progress || 0} tone="gold" />
+                  <StageRail label="总进度" percent={progress?.progress || 0} tone="green" />
+                </div>
+                <div className="file-state">
+                  <span className={`pill ${statusTone(progress?.stage || "queued")}`}>
+                    {progress?.stage || "queued"}
+                  </span>
+                  <small>{progress?.state || "等待构建"}</small>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </section>
   );
 }
 
-function FileTable({
-  files,
-  buildFiles,
-  onSelectionChange,
+function QueryModule({
+  selectedKbId,
+  catalog,
+  trace,
+  loading,
+  query,
+  queryError,
+  graphStage,
+  onSelectKb,
+  onQueryChange,
+  onGraphStageChange,
+  onSearch,
 }: {
-  files: UploadedDocument[];
-  buildFiles: BuildFileProgress[];
-  onSelectionChange: (id: string, selected: boolean) => void;
+  selectedKbId: string;
+  catalog: LibraryRecord[];
+  trace: SearchTrace | null;
+  loading: boolean;
+  query: string;
+  queryError: string;
+  graphStage: QueryGraphStage;
+  onSelectKb: (kbId: string) => void;
+  onQueryChange: (value: string) => void;
+  onGraphStageChange: (value: QueryGraphStage) => void;
+  onSearch: () => void;
 }) {
-  const progressByPath = React.useMemo(
-    () => new Map(buildFiles.map((item) => [item.path, item])),
-    [buildFiles],
+  const [selectedRelationId, setSelectedRelationId] = React.useState<string | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = React.useState<string | null>(null);
+  const [hoveredLinkId, setHoveredLinkId] = React.useState<string | null>(null);
+  const [graphScale, setGraphScale] = React.useState(100);
+  const [seedExploreDepth, setSeedExploreDepth] = React.useState<2 | 3 | 4>(3);
+  const [seedShuffleNonce, setSeedShuffleNonce] = React.useState(0);
+  const [seedStageGraph, setSeedStageGraph] = React.useState<EntityNeighborhoodResponse["graph"]>({
+    nodes: [],
+    links: [],
+  });
+  const [selectedSeedEntityId, setSelectedSeedEntityId] = React.useState<string | null>(null);
+  const [seedStageCenterId, setSeedStageCenterId] = React.useState<string | null>(null);
+  const [seedStageLoading, setSeedStageLoading] = React.useState(false);
+  const answerSummary = React.useMemo(() => (trace ? buildAnswerSummary(trace) : null), [trace]);
+  const graphSource = React.useMemo(() => {
+    if (!trace) return { nodes: [], links: [] };
+    if (graphStage === "seed") {
+      return seedStageGraph;
+    }
+    return getTraceGraphByStage(trace, graphStage);
+  }, [graphStage, seedStageGraph, trace]);
+  const graphData = React.useMemo(() => {
+    if (!trace) {
+      return {
+        nodes: [],
+        links: [],
+        stats: { totalNodes: 0, totalLinks: 0, visibleNodes: 0, visibleLinks: 0 },
+        nodeMap: new Map<string, PreparedGraphNode>(),
+      };
+    }
+    return prepareGraphData(
+      graphSource.nodes.map((node) => ({
+        ...node,
+        label: getReadableNodeLabel(node),
+        color: node.is_seed ? "#ffd166" : "#64f0cd",
+      })),
+      graphSource.links.map((link) => ({
+        ...link,
+        color: link.id === selectedRelationId ? colorFromSeed(link.id) : "rgba(103, 204, 255, 0.32)",
+      })),
+      {
+        selectedRelationId,
+        densityMode: "balanced",
+        preferredNodeLimit: graphStage === "seed" ? 36 : 20,
+        preferredLinkLimit: graphStage === "seed" ? 48 : 22,
+      },
+    );
+  }, [graphSource, graphStage, selectedRelationId, trace]);
+
+  const topologyGraph = React.useMemo(
+    () => buildTopologyGraph(graphData, selectedRelationId),
+    [graphData, selectedRelationId],
+  );
+  const centerNodeId = React.useMemo(
+    () =>
+      (graphStage === "seed" ? seedStageCenterId : null) ||
+      topologyGraph.nodes.find((node) => node.is_seed)?.id ||
+      topologyGraph.nodes[0]?.id ||
+      null,
+    [graphStage, seedStageCenterId, topologyGraph.nodes],
   );
 
+  const [graphRef, graphSize] = useElementSize<HTMLDivElement>();
+  const graphCanvasRef = React.useRef<GraphCanvasHandle | null>(null);
+  const evidenceRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
+  const highlightTerms = React.useMemo(() => {
+    if (!trace) return [];
+    const queryTerms = extractHighlightTerms(trace.search.query);
+    const relationTerms = trace.trace.result_relations.flatMap((item) => [
+      item.subject_name,
+      item.object_name,
+      item.relation,
+    ]);
+    return Array.from(new Set([...queryTerms, ...relationTerms]));
+  }, [trace]);
+
+  const evidenceMatches = React.useMemo(() => {
+    if (!trace || !selectedRelationId) return new Set<string>();
+    return new Set(
+      trace.trace.grounded_passages
+        .filter((item) => item.matched_relation_ids?.includes(selectedRelationId))
+        .map((item) => item.id),
+    );
+  }, [graphSource, selectedRelationId, trace]);
+
+  React.useEffect(() => {
+    setSelectedRelationId(null);
+    setHoveredNodeId(null);
+    setHoveredLinkId(null);
+  }, [graphStage, trace]);
+
+  React.useEffect(() => {
+    if (!trace) {
+      setSelectedSeedEntityId(null);
+      return;
+    }
+    const firstSeedId = trace.trace.seed_entities[0]?.id || null;
+    setSelectedSeedEntityId((current) =>
+      current && trace.trace.seed_entities.some((entity) => entity.id === current) ? current : firstSeedId,
+    );
+  }, [trace]);
+
+  React.useEffect(() => {
+    setSeedShuffleNonce(0);
+  }, [seedExploreDepth, trace]);
+
+  React.useEffect(() => {
+    if (!trace || graphStage !== "seed") {
+      setSeedStageLoading(false);
+      return;
+    }
+
+    const seedEntityIds = trace.trace.seed_entities.map((entity) => entity.id).filter(Boolean);
+    if (seedEntityIds.length === 0) {
+      setSeedStageGraph({ nodes: [], links: [] });
+      setSeedStageCenterId(null);
+      setSeedStageLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const loadSeedGraph = async () => {
+      setSeedStageLoading(true);
+      try {
+        const response = await fetch(apiUrl("/api/search/entity-neighborhood"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: DEFAULT_USER_ID,
+            kb_id: selectedKbId,
+            seed_entity_ids: seedEntityIds,
+            center_entity_id: selectedSeedEntityId || seedEntityIds[0],
+            depth: seedExploreDepth,
+            relation_limit: 10,
+            shuffle_seed: seedShuffleNonce,
+          }),
+        });
+        if (!response.ok) throw new Error("实体阶段关系图加载失败");
+        const data = (await response.json()) as EntityNeighborhoodResponse;
+        if (cancelled) return;
+        setSeedStageGraph(data.graph || { nodes: [], links: [] });
+        setSeedStageCenterId(data.center_entity_id || selectedSeedEntityId || seedEntityIds[0] || null);
+      } catch {
+        if (cancelled) return;
+        setSeedStageGraph({ nodes: [], links: [] });
+        setSeedStageCenterId(selectedSeedEntityId || seedEntityIds[0] || null);
+      } finally {
+        if (!cancelled) setSeedStageLoading(false);
+      }
+    };
+
+    void loadSeedGraph();
+    return () => {
+      cancelled = true;
+    };
+  }, [graphStage, seedExploreDepth, seedShuffleNonce, selectedKbId, selectedSeedEntityId, trace]);
+
+  const graphStageHint = React.useMemo(() => {
+    if (!trace) return "";
+    if (graphStage === "seed") {
+      return "这里展示问题里识别出的实体，你可以切换实体并查看它周围的关联关系。";
+    }
+    return "这里展示系统最终保留下来的关键关系，右侧证据会对应这些结果。";
+  }, [graphStage, trace]);
+
+  React.useEffect(() => {
+    if (evidenceMatches.size === 0) return;
+    const firstMatch = Array.from(evidenceMatches)[0];
+    evidenceRefs.current[firstMatch]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [evidenceMatches]);
+
   return (
-    <div className="file-table">
-      <div className="table-row table-head">
-        <div className="cell check">选择</div>
-        <div className="cell name">名称 ↕</div>
-        <div className="cell date">上传日期 ↕</div>
-        <div className="cell enable">启用</div>
-        <div className="cell chunks">大小</div>
-        <div className="cell meta">路径</div>
-        <div className="cell parser">解析</div>
-        <div className="cell actions">动作</div>
+    <section className="query-layout">
+      <div className="hero-panel">
+        <div>
+          <span className="eyebrow">Retrieval & Reasoning</span>
+          <h1>语义检索与图谱推理</h1>
+          <p>通过自然语言发起查询，深度透视系统召回、图谱扩展的完整推理链路，精准溯源原文依据。</p>
+        </div>
       </div>
-      {files.map((file) => {
-        const buildFile = progressByPath.get(file.path);
-        const progress = Math.round(buildFile?.progress ?? 0);
-        const state = buildFile
-          ? buildFile.stage === "completed"
-            ? `已入库：${buildFile.summary?.entities ?? 0} 实体 / ${
-                buildFile.summary?.relations ?? 0
-              } 关系 / ${buildFile.summary?.chunks ?? 0} 块`
-            : buildFile.stage === "failed"
-              ? `失败：${buildFile.state}`
-              : buildFile.state
-          : "未加入当前构建";
-        return (
-          <div className="table-row" key={file.id}>
-            <div className="cell check">
-              <input
-                type="checkbox"
-                checked={file.selected}
-                onChange={(event) => onSelectionChange(file.id, event.target.checked)}
-              />
+
+      <div className="query-top">
+        <section className="panel query-form">
+          <div className="panel-head">
+            <h2>问题输入</h2>
+            <span>{selectedKbId || "未选择"}</span>
+          </div>
+          <label className="field">
+            检索知识库
+            <select value={selectedKbId} onChange={(event) => onSelectKb(event.target.value)}>
+              {catalog.map((item) => (
+                <option key={item.kb_id} value={item.kb_id}>
+                  {item.kb_id}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="query-box">
+            <textarea
+              value={query}
+              onChange={(event) => onQueryChange(event.target.value)}
+              placeholder="例如：冰箱温度调节后多久可以稳定？"
+            />
+            <button onClick={onSearch} disabled={loading || !selectedKbId}>
+              {loading ? <RefreshCw size={16} className="spin" /> : <Send size={16} />}
+              开始推理
+            </button>
+          </div>
+          {trace ? (
+            <div className="query-answer-card">
+              <div className="answer-card-head">
+                <Bot size={18} />
+                <strong>问题回答</strong>
+              </div>
+              <p>
+                <HighlightText text={answerSummary?.answer || ""} terms={highlightTerms} />
+              </p>
             </div>
-            <div className="cell name">
-              <span className={`file-type ${file.type.toLowerCase()}`}>{file.type}</span>
-              <span className="file-name">
-                <strong>{file.name}</strong>
-                <small>{state}</small>
+          ) : null}
+          {queryError ? <div className="error-banner">{queryError}</div> : null}
+        </section>
+
+        <section className="panel reasoning-feed">
+          <div className="panel-head">
+            <h2>推理步骤</h2>
+            <span>{trace?.trace.steps.length || 0} 步</span>
+          </div>
+          {trace ? (
+            <div className="step-list">
+              {trace.trace.steps.map((step, index) => (
+                <div key={step.id} className="step-card">
+                  <div className="step-index">{index + 1}</div>
+                  <div>
+                    <strong>{step.title}</strong>
+                    <p>{step.summary}</p>
+                    {step.highlights?.length ? (
+                      <div className="tag-row">
+                        {step.highlights.map((item) => (
+                          <span key={item}>{item}</span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-panel">输入问题后，这里会展示完整的检索编排过程。</div>
+          )}
+        </section>
+      </div>
+
+      <div className="reasoning-layout">
+        <section className="panel graph-panel">
+          <div className="panel-head">
+            <div className="graph-panel-title">
+              <h2>实体拓扑结构画布</h2>
+              <span className="graph-ai-pill">
+                <Sparkles size={13} />
+                AI 模型实时生成
               </span>
             </div>
-            <div className="cell date">{file.uploadedAt}</div>
-            <div className="cell enable">
-              <span className="switch">
-                <span />
-              </span>
-            </div>
-            <div className="cell chunks">{file.size}</div>
-            <div className="cell meta" title={file.path}>{file.path}</div>
-            <div className="cell parser">
-              <span className="parser-tag">{file.parser}</span>
-            </div>
-            <div className="cell actions">
-              <span className="progress-track">
-                <span style={{ width: `${progress}%` }} />
-              </span>
-              <span className={progress === 100 ? "done" : "processing"}>{state}</span>
-              <MoreHorizontal size={18} />
+            <div className="graph-panel-meta">
+              <span>过滤后节点：{topologyGraph.stats.visibleNodes} / {topologyGraph.stats.totalNodes}</span>
+              {graphStageHint ? <span>{graphStageHint}</span> : null}
             </div>
           </div>
-        );
-      })}
+          <div className="graph-legend-strip">
+            <span><i className="legend-dot center" /> 黄色：当前中心实体</span>
+            <span><i className="legend-dot seed" /> 绿色：命中实体</span>
+            <span><i className="legend-dot related" /> 蓝色：关联实体</span>
+          </div>
+          {graphStage === "seed" && trace?.trace.seed_entities.length ? (
+            <div className="graph-seed-entity-strip">
+              {trace.trace.seed_entities.map((entity) => (
+                <button
+                  key={entity.id}
+                  type="button"
+                  className={selectedSeedEntityId === entity.id ? "active" : ""}
+                  onClick={() => setSelectedSeedEntityId(entity.id)}
+                >
+                  {entity.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <div className="reasoning-graph" ref={graphRef}>
+            {trace && topologyGraph.nodes.length > 0 && graphSize.width > 0 ? (
+                <TopologyCanvas
+                  ref={graphCanvasRef}
+                  width={graphSize.width}
+                  height={Math.max(graphSize.height, 560)}
+                  nodes={topologyGraph.nodes}
+                  links={topologyGraph.links}
+                  centerNodeId={centerNodeId}
+                  dimUnfocused={graphStage !== "seed"}
+                  selectedRelationId={selectedRelationId}
+                  hoveredNodeId={hoveredNodeId}
+                  hoveredLinkId={hoveredLinkId}
+                  onHoveredNodeChange={setHoveredNodeId}
+                  onHoveredLinkChange={setHoveredLinkId}
+                  onSelectedRelationChange={setSelectedRelationId}
+                  onScaleChange={setGraphScale}
+                />
+            ) : (
+              <div className="empty-panel dark">
+                <Network size={28} />
+                {!trace
+                  ? "等待检索结果"
+                  : graphStage === "seed" && seedStageLoading
+                    ? "实体阶段正在按数据库中的实体关系构图..."
+                    : "本次检索暂未生成可展示的关系图谱"}
+              </div>
+            )}
+            <div className="graph-control-dock">
+              <div className="graph-hop-switch">
+                {[
+                  { id: "seed", label: "命中实体" },
+                  { id: "result", label: "使用数据" },
+                ].map((stage) => (
+                  <button
+                    key={stage.id}
+                    type="button"
+                    className={graphStage === stage.id ? "active" : ""}
+                    onClick={() => onGraphStageChange(stage.id as QueryGraphStage)}
+                  >
+                    {stage.label}
+                  </button>
+                ))}
+              </div>
+              {graphStage === "seed" ? (
+                <div className="graph-seed-controls">
+                  <div className="graph-seed-depth">
+                    {[2, 3, 4].map((depth) => (
+                      <button
+                        key={depth}
+                        type="button"
+                        className={seedExploreDepth === depth ? "active" : ""}
+                        onClick={() => setSeedExploreDepth(depth as 2 | 3 | 4)}
+                      >
+                        {depth} 轮
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    className="graph-randomize"
+                    onClick={() => setSeedShuffleNonce((current) => current + 1)}
+                  >
+                    <Sparkles size={14} />
+                    换一组
+                  </button>
+                </div>
+              ) : null}
+              <div className="graph-control-status">
+                <button
+                  type="button"
+                  className="control-main"
+                  onClick={() => {
+                    graphCanvasRef.current?.resetView();
+                  }}
+                >
+                  <RotateCcw size={16} />
+                  重力布局
+                </button>
+                <span>比例：{graphScale}%</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="panel answer-panel">
+          <div className="panel-head">
+            <h2>结果与证据</h2>
+            <span>{trace?.search.results.length || 0} 条</span>
+          </div>
+          {trace ? (
+            <div className="answer-panel-scroll">
+              <div className="answer-summary">
+                <Bot size={18} />
+                <p>
+                  针对问题“{trace.search.query}”，系统在 <strong>{trace.search.kb_id}</strong>{" "}
+                  中命中了 {trace.search.results.length} 条关系，并回查了{" "}
+                  {trace.search.grounded_passages.length} 段证据。
+                </p>
+              </div>
+              <div className="relation-list">
+                {trace.trace.result_relations.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`relation-card interactive-card ${
+                      item.id === selectedRelationId ? "selected" : ""
+                    }`}
+                    style={
+                      item.id === selectedRelationId
+                        ? ({ "--relation-accent": colorFromSeed(item.id) } as React.CSSProperties)
+                        : undefined
+                    }
+                    onClick={() => setSelectedRelationId(item.id)}
+                  >
+                    <div className="content-head">
+                      <strong>
+                        <HighlightText
+                          text={`${item.subject_name} → ${item.object_name}`}
+                          terms={[item.subject_name, item.object_name]}
+                        />
+                      </strong>
+                      <span className="relation-badge">
+                        <HighlightText text={item.relation} terms={[item.relation]} />
+                      </span>
+                    </div>
+                    <div className="content-scroll">
+                      <p>
+                        <HighlightText
+                          text={item.passage}
+                          terms={[item.subject_name, item.object_name, item.relation, ...highlightTerms]}
+                        />
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <div className="evidence-list">
+                {trace.trace.grounded_passages.map((item) => (
+                  <div
+                    key={item.id}
+                    ref={(node) => {
+                      evidenceRefs.current[item.id] = node;
+                    }}
+                    className={`evidence-card ${
+                      evidenceMatches.has(item.id) ? "matched" : selectedRelationId ? "dimmed" : ""
+                    }`}
+                  >
+                    <label>{item.docment_id || item.id}</label>
+                    {item.matched_relation_ids?.length ? (
+                      <div className="tag-row evidence-tags">
+                        {item.matched_relation_ids.map((relationId) => {
+                          const relation = trace.trace.result_relations.find((entry) => entry.id === relationId);
+                          const label = relation
+                            ? `${relation.subject_name} → ${relation.relation} → ${relation.object_name}`
+                            : relationId;
+                          return (
+                            <button
+                              key={relationId}
+                              type="button"
+                              className={`evidence-tag ${relationId === selectedRelationId ? "active" : ""}`}
+                              style={
+                                relationId === selectedRelationId
+                                  ? ({ "--relation-accent": colorFromSeed(relationId) } as React.CSSProperties)
+                                  : undefined
+                              }
+                              onClick={() => setSelectedRelationId(relationId)}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                    <div className="content-scroll evidence-scroll">
+                      <p>
+                        <HighlightText text={item.passage} terms={highlightTerms} />
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="empty-panel">还没有查询结果。</div>
+          )}
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function MetricCard({
+  title,
+  value,
+  compact = false,
+}: {
+  title: string;
+  value: string;
+  compact?: boolean;
+}) {
+  return (
+    <div className={`metric-card ${compact ? "compact" : ""}`}>
+      <span>{title}</span>
+      <strong>{value}</strong>
     </div>
   );
 }
 
-function ConversationPage({
+function StageRail({
   label,
-  description,
-  items,
-  activeId,
-  knowledgeBases,
-  selectedKnowledgeId,
-  onActiveChange,
-  onItemsChange,
-  onBackToKnowledgeList,
+  percent,
+  tone,
 }: {
   label: string;
-  description: string;
-  items: ChatItem[];
-  activeId: string;
-  knowledgeBases: KnowledgeBase[];
-  selectedKnowledgeId: string;
-  onActiveChange: (id: string) => void;
-  onItemsChange: React.Dispatch<React.SetStateAction<ChatItem[]>>;
-  onBackToKnowledgeList: () => void;
+  percent: number;
+  tone: "cyan" | "gold" | "green";
 }) {
-  const selectedKnowledge =
-    knowledgeBases.find((knowledge) => knowledge.id === selectedKnowledgeId) ?? knowledgeBases[0];
-  const preferredItem =
-    items.find((item) => item.id === activeId) ??
-    items.find((item) => item.knowledgeId === selectedKnowledge?.id) ??
-    items[0];
-  const activeItem = preferredItem;
-  const activeKnowledge =
-    knowledgeBases.find((knowledge) => knowledge.id === activeItem?.knowledgeId) ??
-    selectedKnowledge;
-
-  const createItem = () => {
-    const fallbackKnowledgeId = selectedKnowledge?.id ?? activeKnowledge?.id ?? "";
-    const newItem: ChatItem = {
-      id: `${label}-${Date.now()}`,
-      title: `新${label} ${items.length + 1}`,
-      knowledgeId: fallbackKnowledgeId,
-    };
-
-    onItemsChange((current) => [newItem, ...current]);
-    onActiveChange(newItem.id);
-  };
-
-  const updateKnowledge = (knowledgeId: string) => {
-    onItemsChange((current) =>
-      current.map((item) => (item.id === activeItem.id ? { ...item, knowledgeId } : item)),
-    );
-  };
-
-  const removeActive = () => {
-    onItemsChange((current) => current.filter((item) => item.id !== activeItem.id));
-    const nextItem = items.find((item) => item.id !== activeItem.id);
-    if (nextItem) onActiveChange(nextItem.id);
-  };
-
   return (
-    <main className="workbench-page">
-      <section className="chat-shell">
-        <aside className="chat-sidebar">
-          <button className="sidebar-back" onClick={onBackToKnowledgeList}>
-            <ArrowLeft size={15} />
-            选择知识库
-          </button>
-          <div className="knowledge-chip">
-            <span className={`letter-icon small ${selectedKnowledge?.tone ?? "green"}`}>
-              {selectedKnowledge?.name[0] ?? "知"}
-            </span>
-            <strong>{selectedKnowledge?.name ?? "暂无知识库"}</strong>
-            <Send size={16} />
-          </div>
-          <div className="session-head">
-            <h2>{label}</h2>
-            <span>{items.length} 项</span>
-            <button aria-label={`删除当前${label}`} onClick={removeActive} disabled={!activeItem}>
-              <Trash2 size={16} />
-            </button>
-          </div>
-          <label className="side-search">
-            <Search size={15} />
-            <input placeholder={`搜索${label}`} />
-          </label>
-          {items.map((item) => (
-            <button
-              key={item.id}
-              className={item.id === activeItem?.id ? "session-item active" : "session-item"}
-              onClick={() => onActiveChange(item.id)}
-            >
-              {item.title}
-            </button>
-          ))}
-        </aside>
-
-        <section className="chat-main">
-          <header className="chat-main-head">
-            <div>
-              <strong>{activeItem?.title ?? `新${label}`}</strong>
-              <span>{description}</span>
-            </div>
-            <div className="chat-header-actions">
-              <label className="knowledge-select">
-                <Database size={15} />
-                <select
-                  value={activeKnowledge?.id ?? ""}
-                  onChange={(event) => updateKnowledge(event.target.value)}
-                  disabled={!activeItem}
-                >
-                  {knowledgeBases.map((knowledge) => (
-                    <option key={knowledge.id} value={knowledge.id}>
-                      {knowledge.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button className="primary-small" onClick={createItem}>
-                <Plus size={16} />
-                新建
-              </button>
-            </div>
-          </header>
-          <div className="message-stream">
-            <article className="ai-message">
-              <p>
-                当前{label}已连接到「{activeKnowledge?.name ?? "暂无知识库"}」。你可以在右上角切换知识库，
-                新建后也会保留独立的知识库选择。
-              </p>
-              <span>
-                <Link2 size={14} />
-                来源：产品需求.md、电影剧本写作基础.pdf
-              </span>
-            </article>
-            <article className="user-message">提炼主角弧光的关键步骤</article>
-            <div className="retrieving">
-              <span />
-              正在检索知识库...
-            </div>
-          </div>
-          <ChatInput />
-        </section>
-      </section>
-    </main>
-  );
-}
-
-function ChatInput() {
-  return (
-    <div className="chat-input">
-      <textarea placeholder="请输入消息..." />
-      <div className="input-actions">
-        <button aria-label="附件">
-          <Paperclip size={17} />
-        </button>
-        <button className="thinking">Thinking</button>
-        <button className="send-button" aria-label="发送">
-          <Send size={17} />
-        </button>
+    <div className="stage-rail">
+      <div className="stage-head">
+        <span>{label}</span>
+        <span>{Math.round(percent)}%</span>
+      </div>
+      <div className={`stage-track ${tone}`}>
+        <div style={{ width: `${Math.max(0, Math.min(percent, 100))}%` }} />
       </div>
     </div>
   );

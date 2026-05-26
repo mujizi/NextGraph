@@ -6,6 +6,7 @@ from typing import Any
 
 from backend.app.core.config import Settings
 from backend.app.search.local_global_hybrid.schemas import (
+    EntityNeighborhoodRequest,
     EntityHit,
     GroundedPassage,
     RelationHit,
@@ -47,6 +48,7 @@ class SearchService:
 
     def search(self, request: SearchRequest) -> SearchResponse:
         started = time.perf_counter()
+        print(f"DEBUG: Search request for query: '{request.query}' in kb: '{request.kb_id}'")
         query_vector = self.embedder.embed(request.query)
 
         semantic_route: RouteResult | None = None
@@ -75,6 +77,7 @@ class SearchService:
 
         grounded_passages = self._ground_passages(results, request=request)
         took_ms = round((time.perf_counter() - started) * 1000, 3)
+        print(f"DEBUG: Search finished. Results: {len(results)}, Entity hits: {len(entity_hits)}")
         return SearchResponse(
             mode=request.mode,
             query=request.query,
@@ -99,25 +102,180 @@ class SearchService:
             },
         )
 
+    def search_trace(self, request: SearchRequest) -> dict[str, Any]:
+        response = self.search(request)
+        triple_route = response.metadata.get("route", {}).get("triple", {}) if request.mode == SearchMode.hybrid else response.metadata.get("route", {})
+        semantic_route = response.metadata.get("route", {}).get("semantic", {}) if request.mode == SearchMode.hybrid else response.metadata.get("route", {})
+        seed_graph = self._build_seed_graph(response.entity_hits)
+        expanded_graph = triple_route.get("graph_snapshot") or {"nodes": [], "links": []}
+        graph_snapshot = self._build_result_graph(response.results)
+        steps = [
+            {
+                "id": "query",
+                "title": "解析问题",
+                "summary": f"解析查询并生成 embedding：{request.query}",
+                "highlights": list(triple_route.get("query_entities") or semantic_route.get("query_entities") or []),
+            },
+            {
+                "id": "seed",
+                "title": "召回种子实体",
+                "summary": f"命中 {len(response.entity_hits)} 个候选实体",
+                "entity_ids": list(triple_route.get("seed_entity_ids") or semantic_route.get("seed_entity_ids") or []),
+            },
+            {
+                "id": "expand",
+                "title": "扩展关系子图",
+                "summary": f"扩展到 {triple_route.get('expanded_relation_count', 0)} 条关系",
+                "history": list(triple_route.get("expansion_history") or []),
+            },
+            {
+                "id": "grounding",
+                "title": "证据回溯",
+                "summary": f"回查 {len(response.grounded_passages)} 段原文证据",
+                "passage_ids": [item.id for item in response.grounded_passages],
+            },
+        ]
+        return {
+            "search": response.model_dump(),
+            "trace": {
+                "mode": response.mode,
+                "steps": steps,
+                "graph": graph_snapshot,
+                "seed_graph": seed_graph,
+                "expanded_graph": expanded_graph,
+                "result_graph": graph_snapshot,
+                "seed_entities": [item.model_dump() for item in response.entity_hits],
+                "result_relations": [item.model_dump() for item in response.results],
+                "grounded_passages": [item.model_dump() for item in response.grounded_passages],
+            },
+        }
+
+    def entity_neighborhood(self, request: EntityNeighborhoodRequest) -> dict[str, Any]:
+        seed_rows = self.repository.get_entities_by_ids(
+            request.seed_entity_ids,
+            user_id=request.user_id,
+            kb_id=request.kb_id,
+        )
+        if not seed_rows:
+            return {"graph": {"nodes": [], "links": []}, "center_entity_id": request.center_entity_id}
+
+        entity_lookup = {row["id"]: dict(row) for row in seed_rows}
+        center_entity_id = request.center_entity_id or request.seed_entity_ids[0]
+        if center_entity_id not in entity_lookup and seed_rows:
+            center_entity_id = seed_rows[0]["id"]
+
+        visited_entity_ids: set[str] = set(entity_lookup)
+        visible_entity_ids: set[str] = set(entity_lookup)
+        sampled_relation_ids: set[str] = set()
+        frontier_entity_ids: set[str] = {center_entity_id}
+
+        for hop in range(request.depth):
+            relation_ids: set[str] = set()
+            for index, entity_id in enumerate(sorted(frontier_entity_ids)):
+                entity = entity_lookup.get(entity_id)
+                if not entity:
+                    continue
+                candidate_relation_ids = set(entity.get("relation_ids") or []) - sampled_relation_ids
+                if not candidate_relation_ids:
+                    continue
+                relation_ids.update(
+                    self._stable_sample_ids(
+                        candidate_relation_ids,
+                        shuffle_seed=request.shuffle_seed + hop * 997 + index * 131,
+                        limit=request.relation_limit,
+                    )
+                )
+
+            if not relation_ids:
+                break
+            relation_rows = self.repository.get_relations_by_ids(
+                sorted(relation_ids),
+                user_id=request.user_id,
+                kb_id=request.kb_id,
+            )
+
+            next_frontier: set[str] = set()
+            new_entity_ids: set[str] = set()
+            for row in relation_rows:
+                sampled_relation_ids.add(row["id"])
+                for entity_id in [row.get("subject_id"), row.get("object_id")]:
+                    if not entity_id:
+                        continue
+                    visible_entity_ids.add(entity_id)
+                    if entity_id not in visited_entity_ids:
+                        new_entity_ids.add(entity_id)
+                        next_frontier.add(entity_id)
+
+            if new_entity_ids:
+                fetched_entities = self.repository.get_entities_by_ids(
+                    sorted(new_entity_ids),
+                    user_id=request.user_id,
+                    kb_id=request.kb_id,
+                )
+                entity_lookup.update({row["id"]: row for row in fetched_entities})
+                visited_entity_ids.update(new_entity_ids)
+
+            frontier_entity_ids = next_frontier
+            if not frontier_entity_ids:
+                break
+
+        closure_relation_ids: set[str] = set(sampled_relation_ids)
+        for entity_id in visible_entity_ids:
+            entity = entity_lookup.get(entity_id)
+            if not entity:
+                continue
+            closure_relation_ids.update(entity.get("relation_ids") or [])
+
+        closure_relation_rows = self.repository.get_relations_by_ids(
+            sorted(closure_relation_ids),
+            user_id=request.user_id,
+            kb_id=request.kb_id,
+        )
+        visible_relation_rows = [
+            row
+            for row in closure_relation_rows
+            if row.get("subject_id") in visible_entity_ids and row.get("object_id") in visible_entity_ids
+        ]
+        visible_entity_rows = [entity_lookup[entity_id] for entity_id in visible_entity_ids if entity_id in entity_lookup]
+
+        graph = self._build_graph_snapshot(
+            entity_rows=visible_entity_rows,
+            relation_rows=visible_relation_rows,
+            matched_entity_ids={},
+        )
+        seed_entity_ids = set(request.seed_entity_ids)
+        for node in graph["nodes"]:
+            node["is_seed"] = node.get("id") in seed_entity_ids
+
+        return {"graph": graph, "center_entity_id": center_entity_id}
+
     def _extract_query_entities(self, request: SearchRequest) -> list[str]:
-        return self.query_entity_extractor.extract(request.query, user_id=request.user_id, kb_id=request.kb_id, semantic_limit=request.entity_top_k)
+        entities = self.query_entity_extractor.extract(request.query, user_id=request.user_id, kb_id=request.kb_id, semantic_limit=request.entity_top_k)
+        print(f"DEBUG: Extracted entities: {entities}")
+        return entities
 
     def _retrieve_seed_entities(self, *, request: SearchRequest, fallback_query_vector: list[float]) -> tuple[list[str], list[dict[str, Any]]]:
         query_entities = self._extract_query_entities(request)
         if not query_entities:
+            print("DEBUG: No entities extracted, falling back to query embedding search.")
             rows = self.repository.search_entities(fallback_query_vector, user_id=request.user_id, kb_id=request.kb_id, limit=request.entity_top_k)
-            return [], self._filter_rows_by_score(rows, self.settings.entity_score_threshold)
+            filtered = self._filter_rows_by_score(rows, self.settings.entity_score_threshold)
+            print(f"DEBUG: Fallback search found {len(rows)} rows, {len(filtered)} after threshold.")
+            return [], filtered
 
         aggregated: dict[str, dict[str, Any]] = {}
         for query_entity in query_entities:
             rows = self.repository.search_entities(self.embedder.embed(query_entity), user_id=request.user_id, kb_id=request.kb_id, limit=request.entity_top_k)
+            print(f"DEBUG: Entity search for '{query_entity}' found {len(rows)} rows.")
             for row in rows:
                 entity_id = row["id"]
                 if entity_id not in aggregated or float(row.get("score", 0.0)) > float(aggregated[entity_id].get("score", 0.0)):
                     aggregated[entity_id] = row
 
         sorted_rows = sorted(aggregated.values(), key=lambda row: float(row.get("score", 0.0)), reverse=True)[: request.entity_top_k]
-        return query_entities, self._filter_rows_by_score(sorted_rows, self.settings.entity_score_threshold)
+        filtered = self._filter_rows_by_score(sorted_rows, self.settings.entity_score_threshold)
+        print(f"DEBUG: Aggregated {len(aggregated)} rows, {len(filtered)} after threshold.")
+        return query_entities, filtered
 
     def _semantic_route(self, *, query_vector: list[float], request: SearchRequest) -> RouteResult:
         query_entities, entity_rows = self._retrieve_seed_entities(request=request, fallback_query_vector=query_vector)
@@ -138,7 +296,23 @@ class SearchService:
         entity_hits = [EntityHit(id=row["id"], name=row.get("name", ""), score=float(row.get("score", 0.0)), relation_ids=list(row.get("relation_ids") or [])) for row in seed_entity_rows]
         expansion = self._expand_subgraph(seed_entity_rows=seed_entity_rows, seed_relation_rows=seed_relation_rows, request=request)
         if not expansion.relation_ids:
-            return RouteResult(entity_hits=entity_hits, relation_candidates={}, metadata={})
+            return RouteResult(
+                entity_hits=entity_hits,
+                relation_candidates={},
+                metadata={
+                    "query_entities": query_entities,
+                    "seed_entity_ids": [row["id"] for row in seed_entity_rows],
+                    "seed_relation_ids": [row["id"] for row in seed_relation_rows],
+                    "expanded_relation_count": 0,
+                    "expanded_entity_count": len(expansion.entity_rows),
+                    "expansion_history": expansion.expansion_history,
+                    "graph_snapshot": self._build_graph_snapshot(
+                        entity_rows=expansion.entity_rows,
+                        relation_rows=expansion.relation_rows,
+                        matched_entity_ids=expansion.matched_entity_ids,
+                    ),
+                },
+            )
 
         rerank_limit = min(len(expansion.relation_ids), max(request.top_k, request.relation_top_k, self.settings.default_relation_top_k))
         reranked_rows = self._filter_rows_by_score(
@@ -146,7 +320,23 @@ class SearchService:
             self.settings.relation_score_threshold,
         )
         relation_candidates = self._build_relation_hits(reranked_rows, base_breakdown_key="triple_score", source_mode="triple", matched_entity_ids=expansion.matched_entity_ids)
-        return RouteResult(entity_hits=entity_hits, relation_candidates=relation_candidates, metadata={"query_entities": query_entities, "seed_entity_ids": [row["id"] for row in seed_entity_rows], "seed_relation_ids": [row["id"] for row in seed_relation_rows], "expanded_relation_count": len(expansion.relation_ids), "expanded_entity_count": len(expansion.entity_rows), "expansion_history": expansion.expansion_history})
+        return RouteResult(
+            entity_hits=entity_hits,
+            relation_candidates=relation_candidates,
+            metadata={
+                "query_entities": query_entities,
+                "seed_entity_ids": [row["id"] for row in seed_entity_rows],
+                "seed_relation_ids": [row["id"] for row in seed_relation_rows],
+                "expanded_relation_count": len(expansion.relation_ids),
+                "expanded_entity_count": len(expansion.entity_rows),
+                "expansion_history": expansion.expansion_history,
+                "graph_snapshot": self._build_graph_snapshot(
+                    entity_rows=expansion.entity_rows,
+                    relation_rows=expansion.relation_rows,
+                    matched_entity_ids=expansion.matched_entity_ids,
+                ),
+            },
+        )
 
     def _expand_subgraph(self, *, seed_entity_rows: list[dict[str, Any]], seed_relation_rows: list[dict[str, Any]], request: SearchRequest) -> TripleExpansionResult:
         entity_lookup = {row["id"]: dict(row) for row in seed_entity_rows}
@@ -254,6 +444,94 @@ class SearchService:
         grounded = [GroundedPassage(id=row["id"], passage=row.get("passage", ""), docment_id=row.get("docment_id"), score=float(passage_scores.get(row["id"], 0.0)), matched_relation_ids=sorted(passage_to_relations.get(row["id"], set()))) for row in passage_rows]
         grounded.sort(key=lambda item: item.score, reverse=True)
         return grounded[: request.top_k]
+
+    def _build_graph_snapshot(
+        self,
+        *,
+        entity_rows: list[dict[str, Any]],
+        relation_rows: list[dict[str, Any]],
+        matched_entity_ids: dict[str, set[str]],
+    ) -> dict[str, Any]:
+        entity_lookup = {row["id"]: row for row in entity_rows}
+        nodes: dict[str, dict[str, Any]] = {}
+        links: list[dict[str, Any]] = []
+        for row in relation_rows:
+            subject_id = row.get("subject_id")
+            object_id = row.get("object_id")
+            if not subject_id or not object_id:
+                continue
+            subject = entity_lookup.get(subject_id, {})
+            object_ = entity_lookup.get(object_id, {})
+            nodes.setdefault(
+                subject_id,
+                {
+                    "id": subject_id,
+                    "label": subject.get("name", subject_id),
+                    "kind": "entity",
+                    "is_seed": any(subject_id in values for values in matched_entity_ids.values()),
+                },
+            )
+            nodes.setdefault(
+                object_id,
+                {
+                    "id": object_id,
+                    "label": object_.get("name", object_id),
+                    "kind": "entity",
+                    "is_seed": any(object_id in values for values in matched_entity_ids.values()),
+                },
+            )
+            links.append(
+                {
+                    "id": row.get("id"),
+                    "source": subject_id,
+                    "target": object_id,
+                    "label": row.get("relation", "related_to"),
+                    "matched_entity_ids": sorted(matched_entity_ids.get(row.get("id", ""), set())),
+                }
+            )
+        return {"nodes": list(nodes.values()), "links": links}
+
+    def _build_result_graph(self, relation_hits: list[RelationHit]) -> dict[str, Any]:
+        nodes: dict[str, dict[str, Any]] = {}
+        links: list[dict[str, Any]] = []
+        for hit in relation_hits:
+            nodes.setdefault(hit.subject_id, {"id": hit.subject_id, "label": hit.subject_name, "kind": "entity", "is_seed": bool(hit.matched_entity_ids)})
+            nodes.setdefault(hit.object_id, {"id": hit.object_id, "label": hit.object_name, "kind": "entity", "is_seed": bool(hit.matched_entity_ids)})
+            links.append(
+                {
+                    "id": hit.id,
+                    "source": hit.subject_id,
+                    "target": hit.object_id,
+                    "label": hit.relation,
+                    "matched_entity_ids": hit.matched_entity_ids,
+                }
+            )
+        return {"nodes": list(nodes.values()), "links": links}
+
+    @staticmethod
+    def _stable_sample_ids(ids: set[str], *, shuffle_seed: int, limit: int) -> list[str]:
+        ranked: list[tuple[int, str]] = []
+        for index, value in enumerate(ids):
+            score = shuffle_seed * 131 + index * 17
+            for char in value:
+                score = (score * 33 + ord(char)) & 0xFFFFFFFF
+            ranked.append((score, value))
+        ranked.sort(key=lambda item: item[0])
+        return [value for _, value in ranked[:limit]]
+
+    def _build_seed_graph(self, entity_hits: list[EntityHit]) -> dict[str, Any]:
+        return {
+            "nodes": [
+                {
+                    "id": hit.id,
+                    "label": hit.name or hit.id,
+                    "kind": "entity",
+                    "is_seed": True,
+                }
+                for hit in entity_hits
+            ],
+            "links": [],
+        }
 
     def _merge_hybrid(self, *, semantic_candidates: dict[str, RelationHit], triple_candidates: dict[str, RelationHit], top_k: int) -> list[RelationHit]:
         merged: list[RelationHit] = []

@@ -2,7 +2,15 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PORT="${PORT:-5173}"
+
+if [ -f "$ROOT_DIR/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT_DIR/.env"
+  set +a
+fi
+
+PORT="${NEXTGRAPH_FRONTEND_PORT:-${PORT:-5173}}"
 
 PIDS="$(lsof -ti tcp:"$PORT" || true)"
 if [ -n "$PIDS" ]; then

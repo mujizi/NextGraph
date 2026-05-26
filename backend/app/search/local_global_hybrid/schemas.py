@@ -20,7 +20,17 @@ class SearchRequest(BaseModel):
     top_k: int = Field(default=10, ge=1, le=100, description="最终返回结果数量。")
     entity_top_k: int = Field(default=8, ge=1, le=100, description="实体向量召回数量。")
     relation_top_k: int = Field(default=8, ge=1, le=100, description="关系向量召回数量。")
-    expansion_degree: int = Field(default=1, ge=0, le=4, description="子图扩展 hop 数。")
+    expansion_degree: int = Field(default=2, ge=0, le=4, description="子图扩展 hop 数。")
+
+
+class EntityNeighborhoodRequest(BaseModel):
+    user_id: str = Field(..., min_length=1, description="用户 ID，用于权限/数据隔离。")
+    kb_id: str = Field(..., min_length=1, description="知识库 ID，用于检索范围过滤。")
+    seed_entity_ids: list[str] = Field(default_factory=list, description="搜索阶段召回到的种子实体 ID。")
+    center_entity_id: str | None = Field(default=None, description="实体阶段使用的中心实体 ID。")
+    depth: int = Field(default=3, ge=1, le=4, description="实体阶段的局部扩展轮数。")
+    relation_limit: int = Field(default=10, ge=1, le=30, description="最多抽取的关系数量。")
+    shuffle_seed: int = Field(default=0, ge=0, description="用于随机换组的稳定扰动种子。")
 
 
 class EntityHit(BaseModel):

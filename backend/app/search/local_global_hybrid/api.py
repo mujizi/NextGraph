@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
 
-from backend.app.search.local_global_hybrid.schemas import SearchMode, SearchRequest, SearchResponse
+from backend.app.search.local_global_hybrid.schemas import (
+    EntityNeighborhoodRequest,
+    SearchMode,
+    SearchRequest,
+    SearchResponse,
+)
 from backend.app.search.local_global_hybrid.service import SearchService
 from backend.app.vector_database.search.embedder import build_query_embedder
 from backend.app.vector_database.search.repository import MilvusGraphRepository
@@ -26,6 +31,19 @@ def get_search_service(request: Request) -> SearchService:
 @router.post("", response_model=SearchResponse)
 def search(request: SearchRequest, service: SearchService = Depends(get_search_service)) -> SearchResponse:
     return service.search(request)
+
+
+@router.post("/trace")
+def search_trace(request: SearchRequest, service: SearchService = Depends(get_search_service)) -> dict:
+    return service.search_trace(request)
+
+
+@router.post("/entity-neighborhood")
+def entity_neighborhood(
+    request: EntityNeighborhoodRequest,
+    service: SearchService = Depends(get_search_service),
+) -> dict:
+    return service.entity_neighborhood(request)
 
 
 @router.post("/triple", response_model=SearchResponse)

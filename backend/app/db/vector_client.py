@@ -112,18 +112,18 @@ class MilvusClient:
     # ============================================
 
     async def batch_insert_graph_data(self, payload: Dict[str, List[Dict[str, Any]]]):
-        """将 Pipeline 产出的数据分发写入三个集合"""
+        """将 Pipeline 产出的数据分发写入三个集合 (使用 upsert 确保更新存量数据)"""
         try:
             # 写入 Entities (表1)
             if payload["Table1_Entities"]:
                 col_e = Collection("Entities")
-                col_e.insert(payload["Table1_Entities"])
+                col_e.upsert(payload["Table1_Entities"])
                 col_e.flush()
 
             # 写入 Relations (表2)
             if payload["Table2_Relations"]:
                 col_r = Collection("Relations")
-                col_r.insert(payload["Table2_Relations"])
+                col_r.upsert(payload["Table2_Relations"])
                 col_r.flush()
 
             # 写入 Passage (表3)
@@ -132,10 +132,25 @@ class MilvusClient:
                 col_p.insert(payload["Table3_Passages"])
                 col_p.flush()
                 
-            logger.info("所有数据已成功存入 Milvus")
+            logger.info("所有数据已成功存入 Milvus (已执行 Upsert)")
         except Exception as e:
             logger.error(f"Milvus 写入出错: {e}")
             raise e
+
+    def get_entities_by_ids(self, kb_id: str, entity_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+        """根据 ID 批量获取实体及其关联的关系 ID"""
+        if not entity_ids:
+            return {}
+        try:
+            col = Collection("Entities")
+            # 构造查询表达式
+            ids_str = ", ".join([f"'{eid}'" for eid in entity_ids])
+            expr = f"kb_id == '{kb_id}' and id in [{ids_str}]"
+            res = col.query(expr=expr, output_fields=["id", "name", "relation_ids", "embedding"])
+            return {item["id"]: item for item in res}
+        except Exception as e:
+            logger.error(f"Milvus 查询实体失败: {e}")
+            return {}
 
 # 实例化客户端供 Pipeline 调用
 milvus_client = MilvusClient()

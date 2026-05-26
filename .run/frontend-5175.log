@@ -1,0 +1,170 @@
+
+> nextgraph-frontend@0.1.0 dev
+> vite --host 0.0.0.0 --port 5175
+
+
+  VITE v7.3.2  ready in 3227 ms
+
+  ➜  Local:   http://localhost:5175/
+  ➜  Network: http://10.1.80.12:5175/
+  ➜  Network: http://172.17.0.1:5175/
+  ➜  Network: http://172.18.0.1:5175/
+3:21:38 PM [vite] (client) hmr update /src/main.tsx
+3:21:39 PM [vite] (client) ✨ new dependencies optimized: d3-force-3d
+3:21:39 PM [vite] (client) ✨ optimized dependencies changed. reloading
+3:21:39 PM [vite] (client) hmr invalidate /src/main.tsx Could not Fast Refresh ("true" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:21:39 PM [vite] (client) page reload src/main.tsx
+3:22:23 PM [vite] (client) hmr update /src/main.tsx
+3:22:24 PM [vite] Internal server error: /opt/Workspace/CRX/NextGraph/frontend/src/main.tsx: Unexpected token, expected "," (1086:29)
+
+  1084 |                 <div className="mini-graph" ref={overviewGraphRef}>
+  1085 |                   {overviewGraphSize.width > 0 ? (
+> 1086 |                   {graphMode === "2D" ? (
+       |                              ^
+  1087 |                   <ForceGraph2D
+  1088 |                     ref={overviewGraphInstanceRef}
+  1089 |                     graphData={graph}
+  Plugin: vite:react-babel
+  File: /opt/Workspace/CRX/NextGraph/frontend/src/main.tsx:1086:29
+  1084 |                  <div className="mini-graph" ref={overviewGraphRef}>
+  1085 |                    {overviewGraphSize.width > 0 ? (
+  1086 |                    {graphMode === "2D" ? (
+       |                               ^
+  1087 |                    <ForceGraph2D
+  1088 |                      ref={overviewGraphInstanceRef}
+      at constructor (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at TypeScriptParserMixin.raise (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at TypeScriptParserMixin.unexpected (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:6619:16)
+      at TypeScriptParserMixin.expect (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:6899:12)
+      at TypeScriptParserMixin.parseObjectLike (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11822:14)
+      at TypeScriptParserMixin.parseExprAtom (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11339:23)
+      at TypeScriptParserMixin.parseExprAtom (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at TypeScriptParserMixin.parseExprSubscripts (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11081:23)
+      at TypeScriptParserMixin.parseUpdate (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11066:21)
+      at TypeScriptParserMixin.parseMaybeUnary (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11046:23)
+      at TypeScriptParserMixin.parseMaybeUnary (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:9837:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10899:61)
+      at TypeScriptParserMixin.parseExprOps (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10904:23)
+      at TypeScriptParserMixin.parseMaybeConditional (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10881:23)
+      at TypeScriptParserMixin.parseMaybeAssign (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10831:21)
+      at TypeScriptParserMixin.parseMaybeAssign (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:9786:20)
+      at /opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10800:39
+      at TypeScriptParserMixin.allowInAnd (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:12426:12)
+      at TypeScriptParserMixin.parseMaybeAssignAllowIn (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10800:17)
+      at TypeScriptParserMixin.parseMaybeAssignAllowInOrVoidPattern (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:12493:17)
+      at TypeScriptParserMixin.parseParenAndDistinguishExpression (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11675:28)
+      at TypeScriptParserMixin.parseExprAtom (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11331:23)
+      at TypeScriptParserMixin.parseExprAtom (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at TypeScriptParserMixin.parseExprSubscripts (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11081:23)
+      at TypeScriptParserMixin.parseUpdate (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11066:21)
+      at TypeScriptParserMixin.parseMaybeUnary (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11046:23)
+      at TypeScriptParserMixin.parseMaybeUnary (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:9837:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10899:61)
+      at TypeScriptParserMixin.parseExprOps (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10904:23)
+      at TypeScriptParserMixin.parseMaybeConditional (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10881:23)
+      at TypeScriptParserMixin.parseMaybeAssign (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10831:21)
+      at TypeScriptParserMixin.parseMaybeAssign (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:9786:20)
+      at /opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10800:39
+      at TypeScriptParserMixin.allowInAnd (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:12426:12)
+      at TypeScriptParserMixin.parseMaybeAssignAllowIn (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10800:17)
+      at TypeScriptParserMixin.parseConditional (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10891:30)
+      at TypeScriptParserMixin.parseConditional (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:9603:18)
+      at TypeScriptParserMixin.parseMaybeConditional (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10885:17)
+      at TypeScriptParserMixin.parseMaybeAssign (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10831:21)
+      at TypeScriptParserMixin.parseMaybeAssign (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:9786:20)
+      at TypeScriptParserMixin.parseExpressionBase (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10784:23)
+      at /opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10780:39
+      at TypeScriptParserMixin.allowInAnd (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:12426:12)
+      at TypeScriptParserMixin.parseExpression (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10780:17)
+      at TypeScriptParserMixin.jsxParseExpressionContainer (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:4632:31)
+      at TypeScriptParserMixin.jsxParseElementAt (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:4711:36)
+      at TypeScriptParserMixin.jsxParseElementAt (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:4698:32)
+      at TypeScriptParserMixin.jsxParseElementAt (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:4698:32)
+      at TypeScriptParserMixin.jsxParseElementAt (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:4698:32)
+      at TypeScriptParserMixin.jsxParseElement (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:4749:17)
+3:23:21 PM [vite] (client) hmr update /src/main.tsx
+3:23:21 PM [vite] Internal server error: /opt/Workspace/CRX/NextGraph/frontend/src/main.tsx: Unexpected token, expected "," (1086:29)
+
+  1084 |                 <div className="mini-graph" ref={overviewGraphRef}>
+  1085 |                   {overviewGraphSize.width > 0 ? (
+> 1086 |                   {graphMode === "2D" ? (
+       |                              ^
+  1087 |                   <ForceGraph2D
+  1088 |                     ref={overviewGraphInstanceRef}
+  1089 |                     graphData={graph}
+  Plugin: vite:react-babel
+  File: /opt/Workspace/CRX/NextGraph/frontend/src/main.tsx:1086:29
+  1084 |                  <div className="mini-graph" ref={overviewGraphRef}>
+  1085 |                    {overviewGraphSize.width > 0 ? (
+  1086 |                    {graphMode === "2D" ? (
+       |                               ^
+  1087 |                    <ForceGraph2D
+  1088 |                      ref={overviewGraphInstanceRef}
+      at constructor (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at TypeScriptParserMixin.raise (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:6599:19)
+      at TypeScriptParserMixin.unexpected (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:6619:16)
+      at TypeScriptParserMixin.expect (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:6899:12)
+      at TypeScriptParserMixin.parseObjectLike (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11822:14)
+      at TypeScriptParserMixin.parseExprAtom (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11339:23)
+      at TypeScriptParserMixin.parseExprAtom (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at TypeScriptParserMixin.parseExprSubscripts (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11081:23)
+      at TypeScriptParserMixin.parseUpdate (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11066:21)
+      at TypeScriptParserMixin.parseMaybeUnary (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11046:23)
+      at TypeScriptParserMixin.parseMaybeUnary (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:9837:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10899:61)
+      at TypeScriptParserMixin.parseExprOps (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10904:23)
+      at TypeScriptParserMixin.parseMaybeConditional (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10881:23)
+      at TypeScriptParserMixin.parseMaybeAssign (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10831:21)
+      at TypeScriptParserMixin.parseMaybeAssign (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:9786:20)
+      at /opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10800:39
+      at TypeScriptParserMixin.allowInAnd (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:12426:12)
+      at TypeScriptParserMixin.parseMaybeAssignAllowIn (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10800:17)
+      at TypeScriptParserMixin.parseMaybeAssignAllowInOrVoidPattern (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:12493:17)
+      at TypeScriptParserMixin.parseParenAndDistinguishExpression (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11675:28)
+      at TypeScriptParserMixin.parseExprAtom (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11331:23)
+      at TypeScriptParserMixin.parseExprAtom (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:4764:20)
+      at TypeScriptParserMixin.parseExprSubscripts (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11081:23)
+      at TypeScriptParserMixin.parseUpdate (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11066:21)
+      at TypeScriptParserMixin.parseMaybeUnary (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:11046:23)
+      at TypeScriptParserMixin.parseMaybeUnary (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:9837:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10899:61)
+      at TypeScriptParserMixin.parseExprOps (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10904:23)
+      at TypeScriptParserMixin.parseMaybeConditional (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10881:23)
+      at TypeScriptParserMixin.parseMaybeAssign (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10831:21)
+      at TypeScriptParserMixin.parseMaybeAssign (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:9786:20)
+      at /opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10800:39
+      at TypeScriptParserMixin.allowInAnd (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:12426:12)
+      at TypeScriptParserMixin.parseMaybeAssignAllowIn (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10800:17)
+      at TypeScriptParserMixin.parseConditional (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10891:30)
+      at TypeScriptParserMixin.parseConditional (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:9603:18)
+      at TypeScriptParserMixin.parseMaybeConditional (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10885:17)
+      at TypeScriptParserMixin.parseMaybeAssign (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10831:21)
+      at TypeScriptParserMixin.parseMaybeAssign (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:9786:20)
+      at TypeScriptParserMixin.parseExpressionBase (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10784:23)
+      at /opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10780:39
+      at TypeScriptParserMixin.allowInAnd (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:12426:12)
+      at TypeScriptParserMixin.parseExpression (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:10780:17)
+      at TypeScriptParserMixin.jsxParseExpressionContainer (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:4632:31)
+      at TypeScriptParserMixin.jsxParseElementAt (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:4711:36)
+      at TypeScriptParserMixin.jsxParseElementAt (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:4698:32)
+      at TypeScriptParserMixin.jsxParseElementAt (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:4698:32)
+      at TypeScriptParserMixin.jsxParseElementAt (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:4698:32)
+      at TypeScriptParserMixin.jsxParseElement (/opt/Workspace/CRX/NextGraph/frontend/node_modules/@babel/parser/lib/index.js:4749:17)
+3:23:52 PM [vite] (client) hmr update /src/styles.css
+3:24:05 PM [vite] (client) hmr update /src/main.tsx
+3:24:05 PM [vite] (client) hmr invalidate /src/main.tsx Could not Fast Refresh ("true" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:24:05 PM [vite] (client) page reload src/main.tsx
+4:08:14 PM [vite] (client) hmr update /src/main.tsx
+4:08:15 PM [vite] (client) hmr invalidate /src/main.tsx Could not Fast Refresh ("true" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+4:08:15 PM [vite] (client) page reload src/main.tsx
+4:08:25 PM [vite] (client) hmr update /src/styles.css
+4:34:15 PM [vite] (client) hmr update /src/main.tsx
+4:34:15 PM [vite] (client) hmr invalidate /src/main.tsx Could not Fast Refresh ("true" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+4:34:15 PM [vite] (client) page reload src/main.tsx
+4:34:33 PM [vite] (client) hmr update /src/main.tsx
+4:34:33 PM [vite] (client) hmr invalidate /src/main.tsx Could not Fast Refresh ("true" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+4:34:33 PM [vite] (client) page reload src/main.tsx
+4:36:23 PM [vite] (client) hmr update /src/main.tsx
+4:36:24 PM [vite] (client) hmr invalidate /src/main.tsx Could not Fast Refresh ("true" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+4:36:24 PM [vite] (client) page reload src/main.tsx
+4:36:29 PM [vite] (client) hmr update /src/styles.css
