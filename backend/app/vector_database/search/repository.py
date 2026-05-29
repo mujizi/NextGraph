@@ -127,6 +127,7 @@ class MilvusGraphRepository:
                     "subject_id",
                     "object_id",
                     "relation",
+                    "describe",
                     "passage",
                     "passage_ids",
                     "docment_id",
@@ -163,6 +164,7 @@ class MilvusGraphRepository:
                 "subject_id",
                 "object_id",
                 "relation",
+                "describe",
                 "passage",
                 "passage_ids",
                 "docment_id",
@@ -199,6 +201,7 @@ class MilvusGraphRepository:
                 schema.add_field(field_name="subject_id", datatype=DataType.VARCHAR, max_length=128)
                 schema.add_field(field_name="object_id", datatype=DataType.VARCHAR, max_length=128)
                 schema.add_field(field_name="relation", datatype=DataType.VARCHAR, max_length=4096)
+                schema.add_field(field_name="describe", datatype=DataType.VARCHAR, max_length=4096)
                 schema.add_field(field_name="passage", datatype=DataType.VARCHAR, max_length=8192)
                 schema.add_field(field_name="docment_id", datatype=DataType.VARCHAR, max_length=256)
             else:

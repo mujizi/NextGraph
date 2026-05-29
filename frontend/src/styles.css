@@ -1118,6 +1118,15 @@ mark {
   font-size: 15px;
 }
 
+.answer-support,
+.answer-retrieval-query {
+  display: block;
+  margin-top: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+  font-size: 12px;
+}
+
 .step-card {
   display: grid;
   grid-template-columns: 42px 1fr;
@@ -1154,6 +1163,46 @@ mark {
 .answer-panel {
   display: grid;
   align-content: start;
+}
+
+.answer-section {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.answer-section:first-child {
+  margin-top: 0;
+}
+
+.answer-section-primary .answer-summary {
+  margin-top: 0;
+}
+
+.answer-section-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.answer-section-title {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.answer-section-title strong {
+  font-size: 16px;
+}
+
+.answer-section-title svg {
+  color: var(--cyan);
+}
+
+.answer-section-meta {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .answer-card-head {
@@ -1199,6 +1248,40 @@ mark {
   gap: 12px;
   align-items: start;
   justify-content: space-between;
+}
+
+.relation-card-title {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.relation-rank,
+.evidence-index {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: rgba(255, 209, 102, 0.08);
+  border: 1px solid rgba(255, 209, 102, 0.14);
+  border-radius: 999px;
+}
+
+.relation-triple-line,
+.relation-score-line {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.relation-triple-line {
+  margin-top: 10px;
+}
+
+.relation-score-line {
+  margin-top: 12px;
 }
 
 .relation-badge {
@@ -1289,6 +1372,13 @@ mark {
 .evidence-card label {
   color: var(--gold);
   font-size: 12px;
+}
+
+.evidence-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .error-banner {

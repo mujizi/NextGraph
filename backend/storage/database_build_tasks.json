@@ -1333,5 +1333,1642 @@
         }
       }
     ]
+  },
+  "42d2bd2acc804705803b1aa7561da34b": {
+    "task_id": "42d2bd2acc804705803b1aa7561da34b",
+    "status": "completed",
+    "stage": "completed",
+    "message": "构建完成，数据已写入 Milvus。",
+    "progress_percent": 100.0,
+    "kb_id": "0527",
+    "user_id": "admin_user",
+    "milvus_db": "crx_0527",
+    "parse_task_id": null,
+    "created_at": 1779868833.7056425,
+    "updated_at": 1779868940.5504944,
+    "completed": 2,
+    "failed": 0,
+    "files": [
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/吹风机手册_1778833428940.txt",
+        "name": "吹风机手册_1778833428940.txt",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/source_text/42d2bd2acc804705803b1aa7561da34b/吹风机手册_1778833428940_textified.json",
+        "vector_task_id": "440585154c244bb0961f2fe5441857e5",
+        "summary": {
+          "chunks": 6,
+          "entities": 197,
+          "relations": 159,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/冰箱手册_1778833408486.txt",
+        "name": "冰箱手册_1778833408486.txt",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/source_text/42d2bd2acc804705803b1aa7561da34b/冰箱手册_1778833408486_textified.json",
+        "vector_task_id": "5d32d28d10af475f91d8da49ccc388d7",
+        "summary": {
+          "chunks": 6,
+          "entities": 231,
+          "relations": 162,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      }
+    ]
+  },
+  "1eee7a2a07d143d0ade5ad8ab3e5447a": {
+    "task_id": "1eee7a2a07d143d0ade5ad8ab3e5447a",
+    "status": "completed",
+    "stage": "completed",
+    "message": "构建完成，数据已写入 Milvus。",
+    "progress_percent": 100.0,
+    "kb_id": "05271",
+    "user_id": "admin_user",
+    "milvus_db": "crx_0527",
+    "parse_task_id": "64adb3907e24490ea77fd1b252c70f28",
+    "created_at": 1779870810.0345247,
+    "updated_at": 1779872158.6876764,
+    "completed": 1,
+    "failed": 0,
+    "files": [
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 98.8,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/64adb3907e24490ea77fd1b252c70f28/叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk)_77597d50/叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk)/auto/叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "ced6a12fb77f45b8aa9ee85ade869958",
+        "summary": {
+          "chunks": 304,
+          "entities": 6194,
+          "relations": 5150,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      }
+    ]
+  },
+  "59368b7db3f243a8a05ba26e3c23d95d": {
+    "task_id": "59368b7db3f243a8a05ba26e3c23d95d",
+    "status": "running",
+    "stage": "parsing",
+    "message": "解析完成，准备向量化入库...",
+    "progress_percent": 47.2,
+    "kb_id": "05272",
+    "user_id": "admin_user",
+    "milvus_db": "crx_0527",
+    "parse_task_id": "0752cb141c974f0682dbc3eb4bcabbb2",
+    "created_at": 1779875672.3853602,
+    "updated_at": 1779877968.8086476,
+    "completed": 0,
+    "failed": 0,
+    "files": [
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/STORY故事.pdf",
+        "name": "STORY故事.pdf",
+        "stage": "vectorizing",
+        "state": "[向量化进度] 8500/8930",
+        "progress": 93.71,
+        "parse_progress": 100.0,
+        "vector_progress": 88.56,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/0752cb141c974f0682dbc3eb4bcabbb2/STORY故事_9eaca04a/STORY故事/auto/STORY故事_content_list_enhanced_textified.json",
+        "vector_task_id": "6db5adeaa06a4e03bc72950e2b85c9f4"
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/在观众灵魂深处编码 电影编剧实操手册 (刘立春).pdf",
+        "name": "在观众灵魂深处编码 电影编剧实操手册 (刘立春).pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/游戏故事写作 (迈克尔·布劳特) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "游戏故事写作 (迈克尔·布劳特) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/以想象创造世界 (【美】厄休拉·勒古恩【美】大卫·奈门) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "以想象创造世界 (【美】厄休拉·勒古恩【美】大卫·奈门) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/小说创作谈重思关于写作技艺的传统观念 (大卫·姚斯（ＤａｖｉｄＪａｕｓｓ）) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "小说创作谈重思关于写作技艺的传统观念 (大卫·姚斯（ＤａｖｉｄＪａｕｓｓ）) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/人物设定创意宝库：积极特质词汇速查，塑造值得支持的人物.txt",
+        "name": "人物设定创意宝库：积极特质词汇速查，塑造值得支持的人物.txt",
+        "stage": "text_ready",
+        "state": "文本文件已读取，准备抽取三元组",
+        "progress": 45,
+        "parse_progress": 100,
+        "vector_progress": 0,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/source_text/59368b7db3f243a8a05ba26e3c23d95d/人物设定创意宝库：积极特质词汇速查，塑造值得支持的人物_textified.json"
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/人物设定创意宝库： 消极特质词汇速查，塑造招人喜欢的,有缺陷的人物 - 后浪（Post Wave）出品 (Angela Ackerman, Becca Puglisi) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "人物设定创意宝库： 消极特质词汇速查，塑造招人喜欢的,有缺陷的人物 - 后浪（Post Wave）出品 (Angela Ackerman, Becca Puglisi) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/人物：文本、舞台、银幕角色与卡司设计的艺术.pdf",
+        "name": "人物：文本、舞台、银幕角色与卡司设计的艺术.pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/论戏剧性 (谭霈生) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "论戏剧性 (谭霈生) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/剧本 影视写作的艺术、技巧和商业运作.pdf",
+        "name": "剧本 影视写作的艺术、技巧和商业运作.pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/救猫咪 电影编剧指南.pdf",
+        "name": "救猫咪 电影编剧指南.pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/好剧本是改出来的_13956925.pdf",
+        "name": "好剧本是改出来的_13956925.pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/故事寫作大師班：好萊塢知名「劇本醫生」教你 Step By Step 寫出絕不跟別人撞哏、兼具情感厚度與立體結構的最強故事 = The Anatomy of Story 22 Steps to Becomi... (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "故事寫作大師班：好萊塢知名「劇本醫生」教你 Step By Step 寫出絕不跟別人撞哏、兼具情感厚度與立體結構的最強故事 = The Anatomy of Story 22 Steps to Becomi... (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/故事策略 ([美]Eric Edson) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "故事策略 ([美]Eric Edson) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/对白.docx",
+        "name": "对白.docx",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/电影剧本写作基础pdf电子书高清完整版.pdf",
+        "name": "电影剧本写作基础pdf电子书高清完整版.pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/畅销的故事，热门的角色：日本漫画和游戏中的故事与角色设定方法 ([日]沼田康博) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "畅销的故事，热门的角色：日本漫画和游戏中的故事与角色设定方法 ([日]沼田康博) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/编剧自我修养 最好的剧本里找不到一句多余的台词 (顾仲彝著) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "编剧自我修养 最好的剧本里找不到一句多余的台词 (顾仲彝著) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/编剧的艺术_15231114.pdf",
+        "name": "编剧的艺术_15231114.pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/编剧  步步为营  最新重订本_13915465.pdf",
+        "name": "编剧  步步为营  最新重订本_13915465.pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/《千面英雄》-约瑟夫-坎贝尔.pdf",
+        "name": "《千面英雄》-约瑟夫-坎贝尔.pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 44.77,
+        "parse_progress": 99.5,
+        "vector_progress": 0
+      }
+    ]
+  },
+  "7e2d08f9a44e4ead85c346d8cbcd77ae": {
+    "task_id": "7e2d08f9a44e4ead85c346d8cbcd77ae",
+    "status": "completed",
+    "stage": "completed",
+    "message": "构建完成，数据已写入 Milvus。",
+    "progress_percent": 100.0,
+    "kb_id": "527",
+    "user_id": "admin_user",
+    "milvus_db": "crx_0527",
+    "parse_task_id": "4448e01d6c614b7c957f9cf560d55c81",
+    "created_at": 1779878098.30388,
+    "updated_at": 1779896881.8690925,
+    "completed": 22,
+    "failed": 0,
+    "files": [
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/STORY故事.pdf",
+        "name": "STORY故事.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/STORY故事_9eaca04a/STORY故事/auto/STORY故事_content_list_enhanced_textified.json",
+        "vector_task_id": "8462ec7c8cb34109aa8251d899102b3e",
+        "summary": {
+          "chunks": 314,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/在观众灵魂深处编码 电影编剧实操手册 (刘立春).pdf",
+        "name": "在观众灵魂深处编码 电影编剧实操手册 (刘立春).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/在观众灵魂深处编码 电影编剧实操手册 (刘立春)_45f5f231/在观众灵魂深处编码 电影编剧实操手册 (刘立春)/auto/在观众灵魂深处编码 电影编剧实操手册 (刘立春)_content_list_enhanced_textified.json",
+        "vector_task_id": "d2538241a94f431899a79c419094b269",
+        "summary": {
+          "chunks": 394,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/游戏故事写作 (迈克尔·布劳特) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "游戏故事写作 (迈克尔·布劳特) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/游戏故事写作 (迈克尔·布劳特) (z-library.sk, 1lib.sk, z-lib.sk)_12778898/游戏故事写作 (迈克尔·布劳特) (z-library.sk, 1lib.sk, z-lib.sk)/auto/游戏故事写作 (迈克尔·布劳特) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "aa9469e53f954955af912176677c67f6",
+        "summary": {
+          "chunks": 19,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/以想象创造世界 (【美】厄休拉·勒古恩【美】大卫·奈门) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "以想象创造世界 (【美】厄休拉·勒古恩【美】大卫·奈门) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/以想象创造世界 (【美】厄休拉·勒古恩【美】大卫·奈门) (z-library.sk, 1lib.sk, z-lib.sk)_dfe50fc5/以想象创造世界 (【美】厄休拉·勒古恩【美】大卫·奈门) (z-library.sk, 1lib.sk, z-lib.sk)/auto/以想象创造世界 (【美】厄休拉·勒古恩【美】大卫·奈门) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "21f04fa45d8f40e7bb4c31bf5fb6e50a",
+        "summary": {
+          "chunks": 53,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk)_77597d50/叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk)/auto/叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "1fbe24821f664b07b20562aec29191c5",
+        "summary": {
+          "chunks": 389,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/小说创作谈重思关于写作技艺的传统观念 (大卫·姚斯（ＤａｖｉｄＪａｕｓｓ）) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "小说创作谈重思关于写作技艺的传统观念 (大卫·姚斯（ＤａｖｉｄＪａｕｓｓ）) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/小说创作谈重思关于写作技艺的传统观念 (大卫·姚斯（ＤａｖｉｄＪａｕｓｓ）) (z-library.sk, 1lib.sk, z-lib.sk)_2890025c/小说创作谈重思关于写作技艺的传统观念 (大卫·姚斯（ＤａｖｉｄＪａｕｓｓ）) (z-library.sk, 1lib.sk, z-lib.sk)/auto/小说创作谈重思关于写作技艺的传统观念 (大卫·姚斯（ＤａｖｉｄＪａｕｓｓ）) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "a8adbf35a48749329381afd11d8882c7",
+        "summary": {
+          "chunks": 169,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/人物设定创意宝库：积极特质词汇速查，塑造值得支持的人物.txt",
+        "name": "人物设定创意宝库：积极特质词汇速查，塑造值得支持的人物.txt",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/source_text/7e2d08f9a44e4ead85c346d8cbcd77ae/人物设定创意宝库：积极特质词汇速查，塑造值得支持的人物_textified.json",
+        "vector_task_id": "28091f035f8248829036b503af4a6461",
+        "summary": {
+          "chunks": 173,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/人物设定创意宝库： 消极特质词汇速查，塑造招人喜欢的,有缺陷的人物 - 后浪（Post Wave）出品 (Angela Ackerman, Becca Puglisi) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "人物设定创意宝库： 消极特质词汇速查，塑造招人喜欢的,有缺陷的人物 - 后浪（Post Wave）出品 (Angela Ackerman, Becca Puglisi) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/人物设定创意宝库： 消极特质词汇速查，塑造招人喜欢的,有缺陷的人物 - 后浪（Post Wave）出品 (Angela Ackerman, Becca Puglisi) (z-library.sk, 1lib.sk, z-lib.sk)_87b74957/人物设定创意宝库： 消极特质词汇速查，塑造招人喜欢的,有缺陷的人物 - 后浪（Post Wave）出品 (Angela Ackerman, Becca Puglisi) (z-library.sk, 1lib.sk, z-lib.sk)/auto/人物设定创意宝库： 消极特质词汇速查，塑造招人喜欢的,有缺陷的人物 - 后浪（Post Wave）出品 (Angela Ackerman, Becca Puglisi) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "22b7b5491bce4a1b94d7c5f18f59e149",
+        "summary": {
+          "chunks": 164,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/人物：文本、舞台、银幕角色与卡司设计的艺术.pdf",
+        "name": "人物：文本、舞台、银幕角色与卡司设计的艺术.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/人物：文本、舞台、银幕角色与卡司设计的艺术_63aa1784/人物：文本、舞台、银幕角色与卡司设计的艺术/auto/人物：文本、舞台、银幕角色与卡司设计的艺术_content_list_enhanced_textified.json",
+        "vector_task_id": "de167f24bc0a4c6d9d3a549943d9cba3",
+        "summary": {
+          "chunks": 238,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/论戏剧性 (谭霈生) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "论戏剧性 (谭霈生) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/论戏剧性 (谭霈生) (z-library.sk, 1lib.sk, z-lib.sk)_7025ddcf/论戏剧性 (谭霈生) (z-library.sk, 1lib.sk, z-lib.sk)/auto/论戏剧性 (谭霈生) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "fca8da01997b42ce8edee446a698418a",
+        "summary": {
+          "chunks": 199,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/剧本 影视写作的艺术、技巧和商业运作.pdf",
+        "name": "剧本 影视写作的艺术、技巧和商业运作.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/剧本 影视写作的艺术、技巧和商业运作_65687ef0/剧本 影视写作的艺术、技巧和商业运作/auto/剧本 影视写作的艺术、技巧和商业运作_content_list_enhanced_textified.json",
+        "vector_task_id": "13d70dca75ec4aff9ad264b1b9b9f8e3",
+        "summary": {
+          "chunks": 226,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/救猫咪 电影编剧指南.pdf",
+        "name": "救猫咪 电影编剧指南.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/救猫咪 电影编剧指南_f8fe1b43/救猫咪 电影编剧指南/auto/救猫咪 电影编剧指南_content_list_enhanced_textified.json",
+        "vector_task_id": "d21cbb582ad2426ab11f2ef9782e68f7",
+        "summary": {
+          "chunks": 123,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/好剧本是改出来的_13956925.pdf",
+        "name": "好剧本是改出来的_13956925.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/好剧本是改出来的_13956925_f7bae1b1/好剧本是改出来的_13956925/auto/好剧本是改出来的_13956925_content_list_enhanced_textified.json",
+        "vector_task_id": "f7c733c9b1874353bc2ec25c38d81959",
+        "summary": {
+          "chunks": 93,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/故事寫作大師班：好萊塢知名「劇本醫生」教你 Step By Step 寫出絕不跟別人撞哏、兼具情感厚度與立體結構的最強故事 = The Anatomy of Story 22 Steps to Becomi... (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "故事寫作大師班：好萊塢知名「劇本醫生」教你 Step By Step 寫出絕不跟別人撞哏、兼具情感厚度與立體結構的最強故事 = The Anatomy of Story 22 Steps to Becomi... (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/故事寫作大師班：好萊塢知名「劇本醫生」教你 Step By Step 寫出絕不跟別人撞哏、兼具情感厚度與立體結構的最強故事 = The Anatomy of Story 22 Steps to Becomi... (z-library.sk, 1lib.sk, z-lib.sk)_9f908444/故事寫作大師班：好萊塢知名「劇本醫生」教你 Step By Step 寫出絕不跟別人撞哏、兼具情感厚度與立體結構的最強故事 = The Anatomy of Story 22 Steps to Becomi.../auto/故事寫作大師班：好萊塢知名「劇本醫生」教你 Step By Step 寫出絕不跟別人撞哏、兼具情感厚度與立體結構的最強故事 = The Anatomy of Story 22 Steps to Becomi..._content_list_enhanced_textified.json",
+        "vector_task_id": "b1cd215ff32340179a3b3247e584a752",
+        "summary": {
+          "chunks": 287,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/故事策略 ([美]Eric Edson) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "故事策略 ([美]Eric Edson) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/故事策略 ([美]Eric Edson) (z-library.sk, 1lib.sk, z-lib.sk)_6ddee482/故事策略 ([美]Eric Edson) (z-library.sk, 1lib.sk, z-lib.sk)/auto/故事策略 ([美]Eric Edson) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "2633c599be7b44b5869cc622a3c2250e",
+        "summary": {
+          "chunks": 210,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/对白.docx",
+        "name": "对白.docx",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/对白_924e6ead/对白/auto/对白_content_list_enhanced_textified.json",
+        "vector_task_id": "1acb4b37c537409281c0c3f5ef493b10",
+        "summary": {
+          "chunks": 137,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/电影剧本写作基础pdf电子书高清完整版.pdf",
+        "name": "电影剧本写作基础pdf电子书高清完整版.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/电影剧本写作基础pdf电子书高清完整版_530e4653/电影剧本写作基础pdf电子书高清完整版/auto/电影剧本写作基础pdf电子书高清完整版_content_list_enhanced_textified.json",
+        "vector_task_id": "5240c2ee4fc74323b4190f7f6c274eaa",
+        "summary": {
+          "chunks": 114,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/畅销的故事，热门的角色：日本漫画和游戏中的故事与角色设定方法 ([日]沼田康博) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "畅销的故事，热门的角色：日本漫画和游戏中的故事与角色设定方法 ([日]沼田康博) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/畅销的故事，热门的角色：日本漫画和游戏中的故事与角色设定方法 ([日]沼田康博) (z-library.sk, 1lib.sk, z-lib.sk)_578bb570/畅销的故事，热门的角色：日本漫画和游戏中的故事与角色设定方法 ([日]沼田康博) (z-library.sk, 1lib.sk, z-lib.sk)/auto/畅销的故事，热门的角色：日本漫画和游戏中的故事与角色设定方法 ([日]沼田康博) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "76572057c38c4700b84b2db689935a2f",
+        "summary": {
+          "chunks": 117,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/编剧自我修养 最好的剧本里找不到一句多余的台词 (顾仲彝著) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "编剧自我修养 最好的剧本里找不到一句多余的台词 (顾仲彝著) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/编剧自我修养 最好的剧本里找不到一句多余的台词 (顾仲彝著) (z-library.sk, 1lib.sk, z-lib.sk)_07e8a021/编剧自我修养 最好的剧本里找不到一句多余的台词 (顾仲彝著) (z-library.sk, 1lib.sk, z-lib.sk)/auto/编剧自我修养 最好的剧本里找不到一句多余的台词 (顾仲彝著) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "a15b5b93984f497293f84aadfe015583",
+        "summary": {
+          "chunks": 314,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/编剧的艺术_15231114.pdf",
+        "name": "编剧的艺术_15231114.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/编剧的艺术_15231114_bcd90c29/编剧的艺术_15231114/auto/编剧的艺术_15231114_content_list_enhanced_textified.json",
+        "vector_task_id": "881eeb1f150b4d269e17570bbbe771cd",
+        "summary": {
+          "chunks": 152,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/编剧  步步为营  最新重订本_13915465.pdf",
+        "name": "编剧  步步为营  最新重订本_13915465.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/编剧  步步为营  最新重订本_13915465_a58f6403/编剧  步步为营  最新重订本_13915465/auto/编剧  步步为营  最新重订本_13915465_content_list_enhanced_textified.json",
+        "vector_task_id": "c71e12580a254c4b9d4525b247219950",
+        "summary": {
+          "chunks": 126,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/《千面英雄》-约瑟夫-坎贝尔.pdf",
+        "name": "《千面英雄》-约瑟夫-坎贝尔.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 99.43,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/4448e01d6c614b7c957f9cf560d55c81/《千面英雄》-约瑟夫-坎贝尔_07855edf/《千面英雄》-约瑟夫-坎贝尔/auto/《千面英雄》-约瑟夫-坎贝尔_content_list_enhanced_textified.json",
+        "vector_task_id": "7f4a57ba384f4b2b9d15fa47e95eceb3",
+        "summary": {
+          "chunks": 271,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      }
+    ]
+  },
+  "9ee6c5edfb2c4ca1928080ed005a5280": {
+    "task_id": "9ee6c5edfb2c4ca1928080ed005a5280",
+    "status": "completed",
+    "stage": "completed",
+    "message": "构建完成，数据已写入 Milvus。",
+    "progress_percent": 100.0,
+    "kb_id": "0528",
+    "user_id": "admin_user",
+    "milvus_db": "crx_0528",
+    "parse_task_id": "590ee2161bdd4a8691997a71ae2694dc",
+    "created_at": 1779933637.2386916,
+    "updated_at": 1779952878.4678073,
+    "completed": 22,
+    "failed": 0,
+    "files": [
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/STORY故事.pdf",
+        "name": "STORY故事.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/STORY故事_9eaca04a/STORY故事/auto/STORY故事_content_list_enhanced_textified.json",
+        "vector_task_id": "14ce2f90c89a40158d887fde5158546f",
+        "summary": {
+          "chunks": 315,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/在观众灵魂深处编码 电影编剧实操手册 (刘立春).pdf",
+        "name": "在观众灵魂深处编码 电影编剧实操手册 (刘立春).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/在观众灵魂深处编码 电影编剧实操手册 (刘立春)_45f5f231/在观众灵魂深处编码 电影编剧实操手册 (刘立春)/auto/在观众灵魂深处编码 电影编剧实操手册 (刘立春)_content_list_enhanced_textified.json",
+        "vector_task_id": "924f743a642a42099ebab6d1b54f12f8",
+        "summary": {
+          "chunks": 393,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/游戏故事写作 (迈克尔·布劳特) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "游戏故事写作 (迈克尔·布劳特) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/游戏故事写作 (迈克尔·布劳特) (z-library.sk, 1lib.sk, z-lib.sk)_12778898/游戏故事写作 (迈克尔·布劳特) (z-library.sk, 1lib.sk, z-lib.sk)/auto/游戏故事写作 (迈克尔·布劳特) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "33b8510a5aaf44078a55c15bc0bdafea",
+        "summary": {
+          "chunks": 17,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/以想象创造世界 (【美】厄休拉·勒古恩【美】大卫·奈门) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "以想象创造世界 (【美】厄休拉·勒古恩【美】大卫·奈门) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/以想象创造世界 (【美】厄休拉·勒古恩【美】大卫·奈门) (z-library.sk, 1lib.sk, z-lib.sk)_dfe50fc5/以想象创造世界 (【美】厄休拉·勒古恩【美】大卫·奈门) (z-library.sk, 1lib.sk, z-lib.sk)/auto/以想象创造世界 (【美】厄休拉·勒古恩【美】大卫·奈门) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "ad5e864b53364b4383d2fc297a423529",
+        "summary": {
+          "chunks": 52,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk)_77597d50/叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk)/auto/叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "eabe3d9c9b284c86a8ea6d1494d90ca5",
+        "summary": {
+          "chunks": 387,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/小说创作谈重思关于写作技艺的传统观念 (大卫·姚斯（ＤａｖｉｄＪａｕｓｓ）) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "小说创作谈重思关于写作技艺的传统观念 (大卫·姚斯（ＤａｖｉｄＪａｕｓｓ）) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/小说创作谈重思关于写作技艺的传统观念 (大卫·姚斯（ＤａｖｉｄＪａｕｓｓ）) (z-library.sk, 1lib.sk, z-lib.sk)_2890025c/小说创作谈重思关于写作技艺的传统观念 (大卫·姚斯（ＤａｖｉｄＪａｕｓｓ）) (z-library.sk, 1lib.sk, z-lib.sk)/auto/小说创作谈重思关于写作技艺的传统观念 (大卫·姚斯（ＤａｖｉｄＪａｕｓｓ）) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "3eee4264d8224ab9b07f7681a179317f",
+        "summary": {
+          "chunks": 168,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/人物设定创意宝库：积极特质词汇速查，塑造值得支持的人物.txt",
+        "name": "人物设定创意宝库：积极特质词汇速查，塑造值得支持的人物.txt",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/source_text/9ee6c5edfb2c4ca1928080ed005a5280/人物设定创意宝库：积极特质词汇速查，塑造值得支持的人物_textified.json",
+        "vector_task_id": "a381be85a5bf45f9988eacb18073cec1",
+        "summary": {
+          "chunks": 165,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/人物设定创意宝库： 消极特质词汇速查，塑造招人喜欢的,有缺陷的人物 - 后浪（Post Wave）出品 (Angela Ackerman, Becca Puglisi) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "人物设定创意宝库： 消极特质词汇速查，塑造招人喜欢的,有缺陷的人物 - 后浪（Post Wave）出品 (Angela Ackerman, Becca Puglisi) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/人物设定创意宝库： 消极特质词汇速查，塑造招人喜欢的,有缺陷的人物 - 后浪（Post Wave）出品 (Angela Ackerman, Becca Puglisi) (z-library.sk, 1lib.sk, z-lib.sk)_87b74957/人物设定创意宝库： 消极特质词汇速查，塑造招人喜欢的,有缺陷的人物 - 后浪（Post Wave）出品 (Angela Ackerman, Becca Puglisi) (z-library.sk, 1lib.sk, z-lib.sk)/auto/人物设定创意宝库： 消极特质词汇速查，塑造招人喜欢的,有缺陷的人物 - 后浪（Post Wave）出品 (Angela Ackerman, Becca Puglisi) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "220e5f68b24143b8b1019b6b64629827",
+        "summary": {
+          "chunks": 164,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/人物：文本、舞台、银幕角色与卡司设计的艺术.pdf",
+        "name": "人物：文本、舞台、银幕角色与卡司设计的艺术.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/人物：文本、舞台、银幕角色与卡司设计的艺术_63aa1784/人物：文本、舞台、银幕角色与卡司设计的艺术/auto/人物：文本、舞台、银幕角色与卡司设计的艺术_content_list_enhanced_textified.json",
+        "vector_task_id": "c4a5a11324794eb9b4b3465b4ffb3a5f",
+        "summary": {
+          "chunks": 238,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/论戏剧性 (谭霈生) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "论戏剧性 (谭霈生) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/论戏剧性 (谭霈生) (z-library.sk, 1lib.sk, z-lib.sk)_7025ddcf/论戏剧性 (谭霈生) (z-library.sk, 1lib.sk, z-lib.sk)/auto/论戏剧性 (谭霈生) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "63985e57cf2e4441a3286419cf2079ac",
+        "summary": {
+          "chunks": 198,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/剧本 影视写作的艺术、技巧和商业运作.pdf",
+        "name": "剧本 影视写作的艺术、技巧和商业运作.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/剧本 影视写作的艺术、技巧和商业运作_65687ef0/剧本 影视写作的艺术、技巧和商业运作/auto/剧本 影视写作的艺术、技巧和商业运作_content_list_enhanced_textified.json",
+        "vector_task_id": "2c62cf1f44ec49a4a3f9d7312a89a2e9",
+        "summary": {
+          "chunks": 228,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/救猫咪 电影编剧指南.pdf",
+        "name": "救猫咪 电影编剧指南.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/救猫咪 电影编剧指南_f8fe1b43/救猫咪 电影编剧指南/auto/救猫咪 电影编剧指南_content_list_enhanced_textified.json",
+        "vector_task_id": "2d1ab37c0bb449109e14b61b4b03144a",
+        "summary": {
+          "chunks": 124,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/好剧本是改出来的_13956925.pdf",
+        "name": "好剧本是改出来的_13956925.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/好剧本是改出来的_13956925_f7bae1b1/好剧本是改出来的_13956925/auto/好剧本是改出来的_13956925_content_list_enhanced_textified.json",
+        "vector_task_id": "eb7397ef391f4d159324a5f5b536ab29",
+        "summary": {
+          "chunks": 91,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/故事寫作大師班：好萊塢知名「劇本醫生」教你 Step By Step 寫出絕不跟別人撞哏、兼具情感厚度與立體結構的最強故事 = The Anatomy of Story 22 Steps to Becomi... (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "故事寫作大師班：好萊塢知名「劇本醫生」教你 Step By Step 寫出絕不跟別人撞哏、兼具情感厚度與立體結構的最強故事 = The Anatomy of Story 22 Steps to Becomi... (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/故事寫作大師班：好萊塢知名「劇本醫生」教你 Step By Step 寫出絕不跟別人撞哏、兼具情感厚度與立體結構的最強故事 = The Anatomy of Story 22 Steps to Becomi... (z-library.sk, 1lib.sk, z-lib.sk)_9f908444/故事寫作大師班：好萊塢知名「劇本醫生」教你 Step By Step 寫出絕不跟別人撞哏、兼具情感厚度與立體結構的最強故事 = The Anatomy of Story 22 Steps to Becomi.../auto/故事寫作大師班：好萊塢知名「劇本醫生」教你 Step By Step 寫出絕不跟別人撞哏、兼具情感厚度與立體結構的最強故事 = The Anatomy of Story 22 Steps to Becomi..._content_list_enhanced_textified.json",
+        "vector_task_id": "8c36f41c15e648c6a9b95db47ab1bf47",
+        "summary": {
+          "chunks": 285,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/故事策略 ([美]Eric Edson) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "故事策略 ([美]Eric Edson) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/故事策略 ([美]Eric Edson) (z-library.sk, 1lib.sk, z-lib.sk)_6ddee482/故事策略 ([美]Eric Edson) (z-library.sk, 1lib.sk, z-lib.sk)/auto/故事策略 ([美]Eric Edson) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "fdf40b2c54cc4b4390acd10e7c53d737",
+        "summary": {
+          "chunks": 210,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/对白.docx",
+        "name": "对白.docx",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/对白_924e6ead/对白/auto/对白_content_list_enhanced_textified.json",
+        "vector_task_id": "9f36a57277ab4e55b59492acc5ca9ed3",
+        "summary": {
+          "chunks": 137,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/电影剧本写作基础pdf电子书高清完整版.pdf",
+        "name": "电影剧本写作基础pdf电子书高清完整版.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/电影剧本写作基础pdf电子书高清完整版_530e4653/电影剧本写作基础pdf电子书高清完整版/auto/电影剧本写作基础pdf电子书高清完整版_content_list_enhanced_textified.json",
+        "vector_task_id": "ae1219b869bc4de4a9620bed8e38f257",
+        "summary": {
+          "chunks": 113,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/畅销的故事，热门的角色：日本漫画和游戏中的故事与角色设定方法 ([日]沼田康博) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "畅销的故事，热门的角色：日本漫画和游戏中的故事与角色设定方法 ([日]沼田康博) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/畅销的故事，热门的角色：日本漫画和游戏中的故事与角色设定方法 ([日]沼田康博) (z-library.sk, 1lib.sk, z-lib.sk)_578bb570/畅销的故事，热门的角色：日本漫画和游戏中的故事与角色设定方法 ([日]沼田康博) (z-library.sk, 1lib.sk, z-lib.sk)/auto/畅销的故事，热门的角色：日本漫画和游戏中的故事与角色设定方法 ([日]沼田康博) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "9022a3c4cb2e4510b23e2f45b65d0547",
+        "summary": {
+          "chunks": 116,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/编剧自我修养 最好的剧本里找不到一句多余的台词 (顾仲彝著) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "编剧自我修养 最好的剧本里找不到一句多余的台词 (顾仲彝著) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/编剧自我修养 最好的剧本里找不到一句多余的台词 (顾仲彝著) (z-library.sk, 1lib.sk, z-lib.sk)_07e8a021/编剧自我修养 最好的剧本里找不到一句多余的台词 (顾仲彝著) (z-library.sk, 1lib.sk, z-lib.sk)/auto/编剧自我修养 最好的剧本里找不到一句多余的台词 (顾仲彝著) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "66da3fb2f85243f99b01ca9e7858482a",
+        "summary": {
+          "chunks": 313,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/编剧的艺术_15231114.pdf",
+        "name": "编剧的艺术_15231114.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/编剧的艺术_15231114_bcd90c29/编剧的艺术_15231114/auto/编剧的艺术_15231114_content_list_enhanced_textified.json",
+        "vector_task_id": "fe013c704e774d62aa191674658f92ae",
+        "summary": {
+          "chunks": 151,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/编剧  步步为营  最新重订本_13915465.pdf",
+        "name": "编剧  步步为营  最新重订本_13915465.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/编剧  步步为营  最新重订本_13915465_a58f6403/编剧  步步为营  最新重订本_13915465/auto/编剧  步步为营  最新重订本_13915465_content_list_enhanced_textified.json",
+        "vector_task_id": "3a0b9b769f4f41b6b820b546251901ed",
+        "summary": {
+          "chunks": 126,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/《千面英雄》-约瑟夫-坎贝尔.pdf",
+        "name": "《千面英雄》-约瑟夫-坎贝尔.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 99.43,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/590ee2161bdd4a8691997a71ae2694dc/《千面英雄》-约瑟夫-坎贝尔_07855edf/《千面英雄》-约瑟夫-坎贝尔/auto/《千面英雄》-约瑟夫-坎贝尔_content_list_enhanced_textified.json",
+        "vector_task_id": "84116249fb644a219948c5e1a39661f0",
+        "summary": {
+          "chunks": 270,
+          "entities": 0,
+          "relations": 0,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      }
+    ]
+  },
+  "81c5a73a958f4603ae00a70636c971f5": {
+    "task_id": "81c5a73a958f4603ae00a70636c971f5",
+    "status": "running",
+    "stage": "parsing",
+    "message": "解析完成，准备向量化入库...",
+    "progress_percent": 49.79,
+    "kb_id": "05281",
+    "user_id": "admin_user",
+    "milvus_db": "crx_0528",
+    "parse_task_id": "11a54174629e4cfda6792725d91b0844",
+    "created_at": 1779957374.2301536,
+    "updated_at": 1779958973.5778534,
+    "completed": 0,
+    "failed": 0,
+    "files": [
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/STORY故事.pdf",
+        "name": "STORY故事.pdf",
+        "stage": "vectorizing",
+        "state": "[抽取进度] 129/247",
+        "progress": 64.62,
+        "parse_progress": 100.0,
+        "vector_progress": 35.67,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/11a54174629e4cfda6792725d91b0844/STORY故事_9eaca04a/STORY故事/auto/STORY故事_content_list_enhanced_textified.json",
+        "vector_task_id": "78011bca9d404c2cbba47d1dac6eefc4"
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/在观众灵魂深处编码 电影编剧实操手册 (刘立春).pdf",
+        "name": "在观众灵魂深处编码 电影编剧实操手册 (刘立春).pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/游戏故事写作 (迈克尔·布劳特) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "游戏故事写作 (迈克尔·布劳特) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "parsing",
+        "state": "解析 100%",
+        "progress": 45.0,
+        "parse_progress": 100.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/以想象创造世界 (【美】厄休拉·勒古恩【美】大卫·奈门) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "以想象创造世界 (【美】厄休拉·勒古恩【美】大卫·奈门) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "parsing",
+        "state": "解析 99%",
+        "progress": 44.55,
+        "parse_progress": 99.0,
+        "vector_progress": 0
+      }
+    ]
+  },
+  "d96482e03c8a40099ebab7c0d9d03c26": {
+    "task_id": "d96482e03c8a40099ebab7c0d9d03c26",
+    "status": "completed",
+    "stage": "completed",
+    "message": "构建完成，数据已写入 Milvus。",
+    "progress_percent": 100.0,
+    "kb_id": "05282",
+    "user_id": "admin_user",
+    "milvus_db": "crx_0528",
+    "parse_task_id": null,
+    "created_at": 1779959001.1675875,
+    "updated_at": 1779959101.6082714,
+    "completed": 2,
+    "failed": 0,
+    "files": [
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/吹风机手册_1778833428940.txt",
+        "name": "吹风机手册_1778833428940.txt",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/source_text/d96482e03c8a40099ebab7c0d9d03c26/吹风机手册_1778833428940_textified.json",
+        "vector_task_id": "622e09d4d27049069d11370fe6624c57",
+        "summary": {
+          "chunks": 6,
+          "entities": 241,
+          "relations": 159,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/冰箱手册_1778833408486.txt",
+        "name": "冰箱手册_1778833408486.txt",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/source_text/d96482e03c8a40099ebab7c0d9d03c26/冰箱手册_1778833408486_textified.json",
+        "vector_task_id": "23d6c8489ddd4764a109aa14dc4a9639",
+        "summary": {
+          "chunks": 6,
+          "entities": 220,
+          "relations": 138,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      }
+    ]
+  },
+  "82703a5303dc41d59cd34694049e99ba": {
+    "task_id": "82703a5303dc41d59cd34694049e99ba",
+    "status": "partial_failed",
+    "stage": "partial_failed",
+    "message": "构建结束，但存在失败文档。",
+    "progress_percent": 95.0,
+    "kb_id": "0529",
+    "user_id": "admin_user",
+    "milvus_db": "crx_0529",
+    "parse_task_id": "ba78bdc307054296b873ab69271657f9",
+    "created_at": 1779959568.5398564,
+    "updated_at": 1779982253.1119769,
+    "completed": 20,
+    "failed": 2,
+    "files": [
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/STORY故事.pdf",
+        "name": "STORY故事.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/STORY故事_9eaca04a/STORY故事/auto/STORY故事_content_list_enhanced_textified.json",
+        "vector_task_id": "86e3b17fdcaf4150a81844eb65428afa",
+        "summary": {
+          "chunks": 309,
+          "entities": 6574,
+          "relations": 5184,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/在观众灵魂深处编码 电影编剧实操手册 (刘立春).pdf",
+        "name": "在观众灵魂深处编码 电影编剧实操手册 (刘立春).pdf",
+        "stage": "failed",
+        "state": "任务失败: <_InactiveRpcError of RPC that terminated with:\n\tstatus = StatusCode.RESOURCE_EXHAUSTED\n\tdetails = \"grpc: received message larger than max (69378177 vs. 67108864)\"\n\tdebug_error_string = \"UNKNOWN:Error received from peer ipv4:127.0.0.1:7890 {grpc_message:\"grpc: received message larger than max (69378177 vs. 67108864)\", grpc_status:8}\"\n>",
+        "progress": 45,
+        "parse_progress": 100.0,
+        "vector_progress": 89.97,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/在观众灵魂深处编码 电影编剧实操手册 (刘立春)_45f5f231/在观众灵魂深处编码 电影编剧实操手册 (刘立春)/auto/在观众灵魂深处编码 电影编剧实操手册 (刘立春)_content_list_enhanced_textified.json",
+        "vector_task_id": "cb3ae46aa9ba44c9b471c704f0eb3618"
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/游戏故事写作 (迈克尔·布劳特) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "游戏故事写作 (迈克尔·布劳特) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/游戏故事写作 (迈克尔·布劳特) (z-library.sk, 1lib.sk, z-lib.sk)_12778898/游戏故事写作 (迈克尔·布劳特) (z-library.sk, 1lib.sk, z-lib.sk)/auto/游戏故事写作 (迈克尔·布劳特) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "3d7baf1ee45d48f4bdee6104031f621d",
+        "summary": {
+          "chunks": 18,
+          "entities": 353,
+          "relations": 251,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/以想象创造世界 (【美】厄休拉·勒古恩【美】大卫·奈门) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "以想象创造世界 (【美】厄休拉·勒古恩【美】大卫·奈门) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/以想象创造世界 (【美】厄休拉·勒古恩【美】大卫·奈门) (z-library.sk, 1lib.sk, z-lib.sk)_dfe50fc5/以想象创造世界 (【美】厄休拉·勒古恩【美】大卫·奈门) (z-library.sk, 1lib.sk, z-lib.sk)/auto/以想象创造世界 (【美】厄休拉·勒古恩【美】大卫·奈门) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "5cfb24422cd44933abf03380bb44c63e",
+        "summary": {
+          "chunks": 52,
+          "entities": 1095,
+          "relations": 817,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk)_77597d50/叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk)/auto/叙事的本质(The Nature of Narrative) (罗伯特·斯科尔斯(Robert Scholes) etc.) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "e0321c89f19a44c49efd3041fce5ebd9",
+        "summary": {
+          "chunks": 386,
+          "entities": 8945,
+          "relations": 6799,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/小说创作谈重思关于写作技艺的传统观念 (大卫·姚斯（ＤａｖｉｄＪａｕｓｓ）) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "小说创作谈重思关于写作技艺的传统观念 (大卫·姚斯（ＤａｖｉｄＪａｕｓｓ）) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/小说创作谈重思关于写作技艺的传统观念 (大卫·姚斯（ＤａｖｉｄＪａｕｓｓ）) (z-library.sk, 1lib.sk, z-lib.sk)_2890025c/小说创作谈重思关于写作技艺的传统观念 (大卫·姚斯（ＤａｖｉｄＪａｕｓｓ）) (z-library.sk, 1lib.sk, z-lib.sk)/auto/小说创作谈重思关于写作技艺的传统观念 (大卫·姚斯（ＤａｖｉｄＪａｕｓｓ）) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "57b98b368c884e1ea8cf21756f4aefd5",
+        "summary": {
+          "chunks": 168,
+          "entities": 3558,
+          "relations": 2768,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/人物设定创意宝库：积极特质词汇速查，塑造值得支持的人物.txt",
+        "name": "人物设定创意宝库：积极特质词汇速查，塑造值得支持的人物.txt",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/source_text/82703a5303dc41d59cd34694049e99ba/人物设定创意宝库：积极特质词汇速查，塑造值得支持的人物_textified.json",
+        "vector_task_id": "0e93f98d4a224c79a9211aca6f555b3c",
+        "summary": {
+          "chunks": 165,
+          "entities": 4558,
+          "relations": 4198,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/人物设定创意宝库： 消极特质词汇速查，塑造招人喜欢的,有缺陷的人物 - 后浪（Post Wave）出品 (Angela Ackerman, Becca Puglisi) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "人物设定创意宝库： 消极特质词汇速查，塑造招人喜欢的,有缺陷的人物 - 后浪（Post Wave）出品 (Angela Ackerman, Becca Puglisi) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "failed",
+        "state": "\nOCR-det ch:  41%|████▏     | 12/29 [00:00<00:00, 21.31it/s]\u001b[A\n\nOCR-det ch:  59%|█████▊    | 17/29 [00:00<00:00, 28.57it/s]\u001b[A\n\nOCR-det ch:  79%|███████▉  | 23/29 [00:00<00:00, 35.31it/s]\u001b[A\n\nOCR-det ch: 100%|██████████| 29/29 [00:00<00:00, 40.99it/s]\u001b[A\nOCR-det ch: 100%|██████████| 29/29 [00:00<00:00, 32.59it/s]\n\n\nOCR-rec Predict:   0%|          | 0/193 [00:00<?, ?it/s]\u001b[A\n\nOCR-rec Predict:  28%|██▊       | 54/193 [00:00<00:00, 500.28it/s]\u001b[A\n\nOCR-rec Predict:  56%|█████▌    | 108/193 [00:00<00:00, 485.12it/s]\u001b[A\n\nOCR-rec Predict:  84%|████████▍ | 162/193 [00:00<00:00, 423.58it/s]\u001b[A\nOCR-rec Predict: 100%|██████████| 193/193 [00:00<00:00, 407.20it/s]\n\n\nSeal Predict: 0it [00:00, ?it/s]\u001b[A\nSeal Predict: 0it [00:00, ?it/s]\n\nProcessing pages:  98%|█████████▊| 709/720 [00:18<00:00, 39.58it/s]\nProcessing pages:  99%|█████████▉| 713/720 [00:18<00:00, 38.08it/s]\nProcessing pages: 100%|█████████▉| 718/720 [00:18<00:00, 39.40it/s]/usr/lib/python3.10/multiprocessing/resource_tracker.py:224: UserWarning: resource_tracker: There appear to be 5 leaked semaphore objects to clean up at shutdown\n  warnings.warn('resource_tracker: There appear to be %d '\nError: 1 task(s) failed while processing documents:\n- task#1 (人物设定创意宝库： 消极特质词汇速查，塑造招人喜欢的,有缺陷的人物 - 后浪（Post Wave）出品 (Angela Ackerman, Becca Puglisi) (z-library.sk, 1lib.sk, z-lib.sk)): ",
+        "progress": 45,
+        "parse_progress": 1.0,
+        "vector_progress": 0
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/人物：文本、舞台、银幕角色与卡司设计的艺术.pdf",
+        "name": "人物：文本、舞台、银幕角色与卡司设计的艺术.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/人物：文本、舞台、银幕角色与卡司设计的艺术_63aa1784/人物：文本、舞台、银幕角色与卡司设计的艺术/auto/人物：文本、舞台、银幕角色与卡司设计的艺术_content_list_enhanced_textified.json",
+        "vector_task_id": "e02fd15d9b8948c29465b1881cb6092a",
+        "summary": {
+          "chunks": 238,
+          "entities": 5704,
+          "relations": 4519,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/论戏剧性 (谭霈生) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "论戏剧性 (谭霈生) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/论戏剧性 (谭霈生) (z-library.sk, 1lib.sk, z-lib.sk)_7025ddcf/论戏剧性 (谭霈生) (z-library.sk, 1lib.sk, z-lib.sk)/auto/论戏剧性 (谭霈生) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "e2df6459b8f84ce685b152e2ab386c22",
+        "summary": {
+          "chunks": 198,
+          "entities": 3928,
+          "relations": 3319,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/剧本 影视写作的艺术、技巧和商业运作.pdf",
+        "name": "剧本 影视写作的艺术、技巧和商业运作.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/剧本 影视写作的艺术、技巧和商业运作_65687ef0/剧本 影视写作的艺术、技巧和商业运作/auto/剧本 影视写作的艺术、技巧和商业运作_content_list_enhanced_textified.json",
+        "vector_task_id": "353317b4324e4bc182ccd632c62d6dc6",
+        "summary": {
+          "chunks": 227,
+          "entities": 5194,
+          "relations": 3780,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/救猫咪 电影编剧指南.pdf",
+        "name": "救猫咪 电影编剧指南.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/救猫咪 电影编剧指南_f8fe1b43/救猫咪 电影编剧指南/auto/救猫咪 电影编剧指南_content_list_enhanced_textified.json",
+        "vector_task_id": "a0f453da2adb426cb4ce77eea569599a",
+        "summary": {
+          "chunks": 125,
+          "entities": 2785,
+          "relations": 2261,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/好剧本是改出来的_13956925.pdf",
+        "name": "好剧本是改出来的_13956925.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/好剧本是改出来的_13956925_f7bae1b1/好剧本是改出来的_13956925/auto/好剧本是改出来的_13956925_content_list_enhanced_textified.json",
+        "vector_task_id": "e817b710f3e34757b7c17d1aaa06c443",
+        "summary": {
+          "chunks": 94,
+          "entities": 1831,
+          "relations": 1514,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/故事寫作大師班：好萊塢知名「劇本醫生」教你 Step By Step 寫出絕不跟別人撞哏、兼具情感厚度與立體結構的最強故事 = The Anatomy of Story 22 Steps to Becomi... (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "故事寫作大師班：好萊塢知名「劇本醫生」教你 Step By Step 寫出絕不跟別人撞哏、兼具情感厚度與立體結構的最強故事 = The Anatomy of Story 22 Steps to Becomi... (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/故事寫作大師班：好萊塢知名「劇本醫生」教你 Step By Step 寫出絕不跟別人撞哏、兼具情感厚度與立體結構的最強故事 = The Anatomy of Story 22 Steps to Becomi... (z-library.sk, 1lib.sk, z-lib.sk)_9f908444/故事寫作大師班：好萊塢知名「劇本醫生」教你 Step By Step 寫出絕不跟別人撞哏、兼具情感厚度與立體結構的最強故事 = The Anatomy of Story 22 Steps to Becomi.../auto/故事寫作大師班：好萊塢知名「劇本醫生」教你 Step By Step 寫出絕不跟別人撞哏、兼具情感厚度與立體結構的最強故事 = The Anatomy of Story 22 Steps to Becomi..._content_list_enhanced_textified.json",
+        "vector_task_id": "3d2cba1519ab41a9b4e4248e7ea741b0",
+        "summary": {
+          "chunks": 286,
+          "entities": 6713,
+          "relations": 5725,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/故事策略 ([美]Eric Edson) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "故事策略 ([美]Eric Edson) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/故事策略 ([美]Eric Edson) (z-library.sk, 1lib.sk, z-lib.sk)_6ddee482/故事策略 ([美]Eric Edson) (z-library.sk, 1lib.sk, z-lib.sk)/auto/故事策略 ([美]Eric Edson) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "b5c073f241ab4ec5909334a403603503",
+        "summary": {
+          "chunks": 211,
+          "entities": 4305,
+          "relations": 3727,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/对白.docx",
+        "name": "对白.docx",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/对白_924e6ead/对白/auto/对白_content_list_enhanced_textified.json",
+        "vector_task_id": "fbae5197a6d1421ba691996fb0acbc5d",
+        "summary": {
+          "chunks": 137,
+          "entities": 3592,
+          "relations": 2749,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/电影剧本写作基础pdf电子书高清完整版.pdf",
+        "name": "电影剧本写作基础pdf电子书高清完整版.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/电影剧本写作基础pdf电子书高清完整版_530e4653/电影剧本写作基础pdf电子书高清完整版/auto/电影剧本写作基础pdf电子书高清完整版_content_list_enhanced_textified.json",
+        "vector_task_id": "ac1a2b23a3c849beb75907aa86d6c77f",
+        "summary": {
+          "chunks": 115,
+          "entities": 2597,
+          "relations": 2106,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/畅销的故事，热门的角色：日本漫画和游戏中的故事与角色设定方法 ([日]沼田康博) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "畅销的故事，热门的角色：日本漫画和游戏中的故事与角色设定方法 ([日]沼田康博) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/畅销的故事，热门的角色：日本漫画和游戏中的故事与角色设定方法 ([日]沼田康博) (z-library.sk, 1lib.sk, z-lib.sk)_578bb570/畅销的故事，热门的角色：日本漫画和游戏中的故事与角色设定方法 ([日]沼田康博) (z-library.sk, 1lib.sk, z-lib.sk)/auto/畅销的故事，热门的角色：日本漫画和游戏中的故事与角色设定方法 ([日]沼田康博) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "00ee36b0205e4f9196a2c43fbe4d9294",
+        "summary": {
+          "chunks": 117,
+          "entities": 2854,
+          "relations": 2256,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/编剧自我修养 最好的剧本里找不到一句多余的台词 (顾仲彝著) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "name": "编剧自我修养 最好的剧本里找不到一句多余的台词 (顾仲彝著) (z-library.sk, 1lib.sk, z-lib.sk).pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/编剧自我修养 最好的剧本里找不到一句多余的台词 (顾仲彝著) (z-library.sk, 1lib.sk, z-lib.sk)_07e8a021/编剧自我修养 最好的剧本里找不到一句多余的台词 (顾仲彝著) (z-library.sk, 1lib.sk, z-lib.sk)/auto/编剧自我修养 最好的剧本里找不到一句多余的台词 (顾仲彝著) (z-library.sk, 1lib.sk, z-lib.sk)_content_list_enhanced_textified.json",
+        "vector_task_id": "b00814a4c80648b6bd22a80c52a999a1",
+        "summary": {
+          "chunks": 313,
+          "entities": 6518,
+          "relations": 5243,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/编剧的艺术_15231114.pdf",
+        "name": "编剧的艺术_15231114.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/编剧的艺术_15231114_bcd90c29/编剧的艺术_15231114/auto/编剧的艺术_15231114_content_list_enhanced_textified.json",
+        "vector_task_id": "8f2919c7723d46b9834fc983f3a1bad0",
+        "summary": {
+          "chunks": 152,
+          "entities": 3709,
+          "relations": 2993,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/编剧  步步为营  最新重订本_13915465.pdf",
+        "name": "编剧  步步为营  最新重订本_13915465.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 100.0,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/编剧  步步为营  最新重订本_13915465_a58f6403/编剧  步步为营  最新重订本_13915465/auto/编剧  步步为营  最新重订本_13915465_content_list_enhanced_textified.json",
+        "vector_task_id": "16e0fbce9a144f73a49dcb302f5c353f",
+        "summary": {
+          "chunks": 125,
+          "entities": 2776,
+          "relations": 2045,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      },
+      {
+        "path": "/opt/Workspace/CRX/NextGraph/backend/storage/uploads/《千面英雄》-约瑟夫-坎贝尔.pdf",
+        "name": "《千面英雄》-约瑟夫-坎贝尔.pdf",
+        "stage": "completed",
+        "state": "已写入 Milvus",
+        "progress": 100,
+        "parse_progress": 99.43,
+        "vector_progress": 100,
+        "json_path": "/opt/Workspace/CRX/NextGraph/backend/storage/mineru_output/ba78bdc307054296b873ab69271657f9/《千面英雄》-约瑟夫-坎贝尔_07855edf/《千面英雄》-约瑟夫-坎贝尔/auto/《千面英雄》-约瑟夫-坎贝尔_content_list_enhanced_textified.json",
+        "vector_task_id": "2308f63d23e34a43a63109da9d153ff4",
+        "summary": {
+          "chunks": 270,
+          "entities": 6584,
+          "relations": 4997,
+          "failed_embeddings": 0,
+          "dropped_relations": 0
+        }
+      }
+    ]
   }
 }

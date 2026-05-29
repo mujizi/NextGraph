@@ -47,6 +47,7 @@ class RelationHit(BaseModel):
     object_id: str
     object_name: str
     relation: str
+    describe: str = ""
     passage: str
     docment_id: str | None = None
     score: float
@@ -71,5 +72,22 @@ class SearchResponse(BaseModel):
     kb_id: str
     results: list[RelationHit] = Field(default_factory=list)
     entity_hits: list[EntityHit] = Field(default_factory=list)
+    grounded_passages: list[GroundedPassage] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class RagAnswerRequest(SearchRequest):
+    answer_top_k: int = Field(default=6, ge=1, le=20, description="用于生成答案的关系数量。")
+    passage_top_k: int = Field(default=6, ge=1, le=20, description="用于生成答案的证据段落数量。")
+
+
+class RagAnswerResponse(BaseModel):
+    mode: SearchMode
+    query: str
+    retrieval_query: str
+    user_id: str
+    kb_id: str
+    answer: str
+    results: list[RelationHit] = Field(default_factory=list)
     grounded_passages: list[GroundedPassage] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)

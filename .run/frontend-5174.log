@@ -3,7 +3,7 @@
 > vite --host 0.0.0.0 --port 5174
 
 
-  VITE v7.3.2  ready in 1484 ms
+  VITE v7.3.2  ready in 1364 ms
 
   ➜  Local:   http://localhost:5174/
   ➜  Network: http://10.1.80.12:5174/

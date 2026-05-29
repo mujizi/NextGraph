@@ -296,7 +296,7 @@ def _query_collection_preview(
         "entities": ("Entities", ["id", "name", "relation_ids", "user_id", "kb_id"]),
         "relations": (
             "Relations",
-            ["id", "subject_id", "object_id", "relation", "passage", "user_id", "kb_id"],
+            ["id", "subject_id", "object_id", "relation", "describe", "passage", "user_id", "kb_id"],
         ),
         "passages": ("Passage", ["id", "docment_id", "passage", "user_id", "kb_id"]),
     }
@@ -920,9 +920,9 @@ def inspect_built_library(
         collections = {
             "entities": ("Entities", ["id", "name", "user_id", "kb_id"]),
             "relations": (
-                "Relations",
-                ["id", "subject_id", "object_id", "relation", "passage", "user_id", "kb_id"],
-            ),
+            "Relations",
+            ["id", "subject_id", "object_id", "relation", "describe", "passage", "user_id", "kb_id"],
+        ),
             "passages": ("Passage", ["id", "docment_id", "passage", "user_id", "kb_id"]),
         }
         data: dict[str, Any] = {

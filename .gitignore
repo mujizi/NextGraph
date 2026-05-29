@@ -11,7 +11,7 @@ backend/storage/uploads/
 text_file/
 __pycache__/
 .DS_Store
-
+.run
 .env
 .env.*
 !.env.example

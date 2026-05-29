@@ -4,10 +4,14 @@ from fastapi import APIRouter, Depends, Request
 
 from backend.app.search.local_global_hybrid.schemas import (
     EntityNeighborhoodRequest,
+    RagAnswerRequest,
+    RagAnswerResponse,
     SearchMode,
     SearchRequest,
     SearchResponse,
 )
+from backend.app.search.answer_generator import AzureOpenAIAnswerGenerator
+from backend.app.search.query_fact_rewriter import AzureLLMQueryFactRewriter
 from backend.app.search.local_global_hybrid.service import SearchService
 from backend.app.vector_database.search.embedder import build_query_embedder
 from backend.app.vector_database.search.repository import MilvusGraphRepository
@@ -23,6 +27,8 @@ def get_search_service(request: Request) -> SearchService:
             settings=settings,
             repository=MilvusGraphRepository(settings),
             embedder=build_query_embedder(settings),
+            query_fact_rewriter=AzureLLMQueryFactRewriter(settings),
+            answer_generator=AzureOpenAIAnswerGenerator(settings),
         )
         request.app.state.search_service = service
     return service
@@ -68,3 +74,11 @@ def search_hybrid(
     service: SearchService = Depends(get_search_service),
 ) -> SearchResponse:
     return service.search(request.model_copy(update={"mode": SearchMode.hybrid}))
+
+
+@router.post("/answer", response_model=RagAnswerResponse)
+def search_answer(
+    request: RagAnswerRequest,
+    service: SearchService = Depends(get_search_service),
+) -> RagAnswerResponse:
+    return service.answer(request)

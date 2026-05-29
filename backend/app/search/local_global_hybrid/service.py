@@ -9,11 +9,15 @@ from backend.app.search.local_global_hybrid.schemas import (
     EntityNeighborhoodRequest,
     EntityHit,
     GroundedPassage,
+    RagAnswerRequest,
+    RagAnswerResponse,
     RelationHit,
     SearchMode,
     SearchRequest,
     SearchResponse,
 )
+from backend.app.search.answer_generator import AnswerGenerator
+from backend.app.search.query_fact_rewriter import IdentityQueryFactRewriter, QueryFactRewriter
 from backend.app.search.query_entity_extractor import AzureLLMQueryEntityExtractor, QueryEntityExtractor
 from backend.app.vector_database.search.embedder import QueryEmbedder
 from backend.app.vector_database.search.repository import MilvusGraphRepository
@@ -36,11 +40,22 @@ class TripleExpansionResult:
 
 
 class SearchService:
-    def __init__(self, *, settings: Settings, repository: MilvusGraphRepository, embedder: QueryEmbedder, query_entity_extractor: QueryEntityExtractor | None = None):
+    def __init__(
+        self,
+        *,
+        settings: Settings,
+        repository: MilvusGraphRepository,
+        embedder: QueryEmbedder,
+        query_entity_extractor: QueryEntityExtractor | None = None,
+        query_fact_rewriter: QueryFactRewriter | None = None,
+        answer_generator: AnswerGenerator | None = None,
+    ):
         self.settings = settings
         self.repository = repository
         self.embedder = embedder
         self.query_entity_extractor = query_entity_extractor or AzureLLMQueryEntityExtractor(settings)
+        self.query_fact_rewriter = query_fact_rewriter or IdentityQueryFactRewriter()
+        self.answer_generator = answer_generator
 
     @staticmethod
     def _filter_rows_by_score(rows: list[dict[str, Any]], threshold: float) -> list[dict[str, Any]]:
@@ -49,7 +64,8 @@ class SearchService:
     def search(self, request: SearchRequest) -> SearchResponse:
         started = time.perf_counter()
         print(f"DEBUG: Search request for query: '{request.query}' in kb: '{request.kb_id}'")
-        query_vector = self.embedder.embed(request.query)
+        retrieval_query = self._rewrite_query_for_retrieval(request)
+        query_vector = self.embedder.embed(retrieval_query)
 
         semantic_route: RouteResult | None = None
         triple_route: RouteResult | None = None
@@ -98,7 +114,48 @@ class SearchService:
                 "hybrid_weights": {"semantic": self.settings.hybrid_semantic_weight, "triple": self.settings.hybrid_triple_weight},
                 "thresholds": {"entity": self.settings.entity_score_threshold, "relation": self.settings.relation_score_threshold},
                 "embedder": self.embedder.__class__.__name__,
+                "retrieval_query": retrieval_query,
                 "route": route_metadata,
+            },
+        )
+
+    def answer(self, request: RagAnswerRequest) -> RagAnswerResponse:
+        retrieval_response = self.search(
+            SearchRequest(
+                query=request.query,
+                user_id=request.user_id,
+                kb_id=request.kb_id,
+                mode=request.mode,
+                top_k=max(request.top_k, request.answer_top_k),
+                entity_top_k=request.entity_top_k,
+                relation_top_k=request.relation_top_k,
+                expansion_degree=request.expansion_degree,
+            )
+        )
+        selected_results = retrieval_response.results[: request.answer_top_k]
+        selected_passages = retrieval_response.grounded_passages[: request.passage_top_k]
+        retrieval_query = str(retrieval_response.metadata.get("retrieval_query") or request.query)
+        context = self._build_rag_context(
+            query=request.query,
+            retrieval_query=retrieval_query,
+            relation_hits=selected_results,
+            grounded_passages=selected_passages,
+        )
+        answer_text = self._generate_answer(query=request.query, retrieval_query=retrieval_query, context=context)
+        return RagAnswerResponse(
+            mode=retrieval_response.mode,
+            query=request.query,
+            retrieval_query=retrieval_query,
+            user_id=request.user_id,
+            kb_id=request.kb_id,
+            answer=answer_text,
+            results=selected_results,
+            grounded_passages=selected_passages,
+            metadata={
+                **retrieval_response.metadata,
+                "answer_top_k": request.answer_top_k,
+                "passage_top_k": request.passage_top_k,
+                "context_preview": context[:2000],
             },
         )
 
@@ -253,6 +310,18 @@ class SearchService:
         entities = self.query_entity_extractor.extract(request.query, user_id=request.user_id, kb_id=request.kb_id, semantic_limit=request.entity_top_k)
         print(f"DEBUG: Extracted entities: {entities}")
         return entities
+
+    def _rewrite_query_for_retrieval(self, request: SearchRequest) -> str:
+        try:
+            rewritten = self.query_fact_rewriter.rewrite(
+                request.query,
+                user_id=request.user_id,
+                kb_id=request.kb_id,
+            )
+        except Exception as exc:
+            print(f"DEBUG: Query rewrite failed, fallback to original query. Error: {exc}")
+            return request.query
+        return rewritten or request.query
 
     def _retrieve_seed_entities(self, *, request: SearchRequest, fallback_query_vector: list[float]) -> tuple[list[str], list[dict[str, Any]]]:
         query_entities = self._extract_query_entities(request)
@@ -419,6 +488,7 @@ class SearchService:
                 object_id=row.get("object_id", ""),
                 object_name=entity_lookup.get(row.get("object_id", ""), {}).get("name", row.get("object_id", "")),
                 relation=row.get("relation", ""),
+                describe=row.get("describe", "") or row.get("relation", ""),
                 passage=row.get("passage", ""),
                 docment_id=row.get("docment_id"),
                 score=score,
@@ -551,6 +621,7 @@ class SearchService:
                 object_id=base_hit.object_id,
                 object_name=base_hit.object_name,
                 relation=base_hit.relation,
+                describe=base_hit.describe,
                 passage=base_hit.passage,
                 docment_id=base_hit.docment_id,
                 score=hybrid_score,
@@ -561,3 +632,62 @@ class SearchService:
             ))
         merged.sort(key=lambda hit: hit.score, reverse=True)
         return merged[:top_k]
+
+    def _build_rag_context(
+        self,
+        *,
+        query: str,
+        retrieval_query: str,
+        relation_hits: list[RelationHit],
+        grounded_passages: list[GroundedPassage],
+    ) -> str:
+        relation_lines: list[str] = []
+        for index, hit in enumerate(relation_hits, start=1):
+            relation_lines.append(
+                "\n".join(
+                    [
+                        f"[Relation {index}]",
+                        f"triple: {hit.subject_name} --({hit.relation})-> {hit.object_name}",
+                        f"describe: {hit.describe}",
+                        f"score: {hit.score:.4f}",
+                    ]
+                )
+            )
+
+        passage_lines: list[str] = []
+        for index, passage in enumerate(grounded_passages, start=1):
+            passage_lines.append(
+                "\n".join(
+                    [
+                        f"[Passage {index}]",
+                        f"id: {passage.id}",
+                        f"docment_id: {passage.docment_id or ''}",
+                        f"text: {passage.passage}",
+                    ]
+                )
+            )
+
+        return (
+            f"Question:\n{query}\n\n"
+            f"Retrieval Query:\n{retrieval_query}\n\n"
+            "Knowledge Graph Relation Summaries:\n"
+            f"{chr(10).join(relation_lines) if relation_lines else 'None'}\n\n"
+            "Grounded Evidence Passages:\n"
+            f"{chr(10).join(passage_lines) if passage_lines else 'None'}"
+        )
+
+    def _generate_answer(self, *, query: str, retrieval_query: str, context: str) -> str:
+        if not self.answer_generator:
+            if "None" in context and "Grounded Evidence Passages:\nNone" in context:
+                return "知识库中没有检索到足够证据，暂时无法回答这个问题。"
+            return context
+        try:
+            answer = self.answer_generator.generate(
+                query=query,
+                retrieval_query=retrieval_query,
+                context=context,
+            )
+        except Exception as exc:
+            print(f"DEBUG: Answer generation failed, fallback to context summary. Error: {exc}")
+            return "知识库已检索到相关材料，但答案生成失败。请先查看返回的关系摘要和证据原文。"
+        return answer or "知识库已检索到相关材料，但未生成有效答案。"

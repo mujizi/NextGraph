@@ -156,6 +156,7 @@ type SearchResponse = {
   kb_id: string;
   results: RelationResult[];
   grounded_passages: GroundedPassage[];
+  metadata?: Record<string, unknown>;
 };
 
 type RelationResult = {
@@ -165,11 +166,13 @@ type RelationResult = {
   object_id: string;
   object_name: string;
   relation: string;
+  describe?: string;
   passage: string;
   docment_id?: string;
   score: number;
   source_modes: string[];
   matched_entity_ids: string[];
+  passage_ids?: string[];
 };
 
 type GroundedPassage = {
@@ -286,6 +289,18 @@ type SearchTrace = {
     result_relations: RelationResult[];
     grounded_passages: GroundedPassage[];
   };
+};
+
+type RagAnswerResponse = {
+  mode: string;
+  query: string;
+  retrieval_query: string;
+  user_id: string;
+  kb_id: string;
+  answer: string;
+  results: RelationResult[];
+  grounded_passages: GroundedPassage[];
+  metadata: Record<string, unknown>;
 };
 
 type EntityNeighborhoodResponse = {
@@ -1380,6 +1395,7 @@ function App() {
   const [chunkOverlapChars, setChunkOverlapChars] = React.useState(150);
   const [queryText, setQueryText] = React.useState("");
   const [queryTrace, setQueryTrace] = React.useState<SearchTrace | null>(null);
+  const [queryAnswer, setQueryAnswer] = React.useState<RagAnswerResponse | null>(null);
   const [queryLoading, setQueryLoading] = React.useState(false);
   const [queryError, setQueryError] = React.useState("");
   const [queryGraphStage, setQueryGraphStage] = React.useState<QueryGraphStage>("seed");
@@ -1568,27 +1584,45 @@ function App() {
     if (!selectedKbId || !queryText.trim()) return;
     setQueryLoading(true);
     setQueryError("");
+    setQueryAnswer(null);
     try {
-      const response = await fetch(apiUrl("/api/search/trace"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: queryText,
-          user_id: DEFAULT_USER_ID,
-          kb_id: selectedKbId,
-          mode: "hybrid",
-          top_k: 12,
-          entity_top_k: 10,
-          relation_top_k: 14,
-          expansion_degree: 2,
+      const payload = {
+        query: queryText,
+        user_id: DEFAULT_USER_ID,
+        kb_id: selectedKbId,
+        mode: "hybrid",
+        top_k: 12,
+        entity_top_k: 10,
+        relation_top_k: 14,
+        expansion_degree: 2,
+      };
+      const [answerResponse, traceResponse] = await Promise.all([
+        fetch(apiUrl("/api/search/answer"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...payload,
+            answer_top_k: 6,
+            passage_top_k: 6,
+          }),
         }),
-      });
-      if (!response.ok) {
+        fetch(apiUrl("/api/search/trace"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }),
+      ]);
+      if (!answerResponse.ok || !traceResponse.ok) {
         throw new Error("查询失败");
       }
-      const data = (await response.json()) as SearchTrace;
-      setQueryTrace(data);
+      const [answerData, traceData] = (await Promise.all([
+        answerResponse.json(),
+        traceResponse.json(),
+      ])) as [RagAnswerResponse, SearchTrace];
+      setQueryAnswer(answerData);
+      setQueryTrace(traceData);
     } catch {
+      setQueryAnswer(null);
       setQueryTrace(null);
       setQueryError("查询失败，请检查后端搜索服务与向量库连接。");
     } finally {
@@ -1685,6 +1719,7 @@ function App() {
             selectedKbId={selectedKbId}
             catalog={catalog}
             trace={queryTrace}
+            answer={queryAnswer}
             loading={queryLoading}
             query={queryText}
             queryError={queryError}
@@ -2256,6 +2291,7 @@ function QueryModule({
   selectedKbId,
   catalog,
   trace,
+  answer,
   loading,
   query,
   queryError,
@@ -2268,6 +2304,7 @@ function QueryModule({
   selectedKbId: string;
   catalog: LibraryRecord[];
   trace: SearchTrace | null;
+  answer: RagAnswerResponse | null;
   loading: boolean;
   query: string;
   queryError: string;
@@ -2290,7 +2327,10 @@ function QueryModule({
   const [selectedSeedEntityId, setSelectedSeedEntityId] = React.useState<string | null>(null);
   const [seedStageCenterId, setSeedStageCenterId] = React.useState<string | null>(null);
   const [seedStageLoading, setSeedStageLoading] = React.useState(false);
-  const answerSummary = React.useMemo(() => (trace ? buildAnswerSummary(trace) : null), [trace]);
+  const answerSupport = React.useMemo(
+    () => answer?.grounded_passages?.[0]?.passage?.trim() || trace?.trace.grounded_passages?.[0]?.passage?.trim() || "",
+    [answer, trace],
+  );
   const graphSource = React.useMemo(() => {
     if (!trace) return { nodes: [], links: [] };
     if (graphStage === "seed") {
@@ -2492,8 +2532,19 @@ function QueryModule({
                 <strong>问题回答</strong>
               </div>
               <p>
-                <HighlightText text={answerSummary?.answer || ""} terms={highlightTerms} />
+                <HighlightText
+                  text={
+                    answer?.answer ||
+                    "知识库中还没有生成正式回答，请先检查后端 /api/search/answer 是否可用。"
+                  }
+                  terms={highlightTerms}
+                />
               </p>
+              {answerSupport ? (
+                <small className="answer-support">
+                  <HighlightText text={answerSupport} terms={highlightTerms} />
+                </small>
+              ) : null}
             </div>
           ) : null}
           {queryError ? <div className="error-banner">{queryError}</div> : null}
@@ -2655,96 +2706,145 @@ function QueryModule({
           </div>
           {trace ? (
             <div className="answer-panel-scroll">
-              <div className="answer-summary">
-                <Bot size={18} />
-                <p>
-                  针对问题“{trace.search.query}”，系统在 <strong>{trace.search.kb_id}</strong>{" "}
-                  中命中了 {trace.search.results.length} 条关系，并回查了{" "}
-                  {trace.search.grounded_passages.length} 段证据。
-                </p>
-              </div>
-              <div className="relation-list">
-                {trace.trace.result_relations.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`relation-card interactive-card ${
-                      item.id === selectedRelationId ? "selected" : ""
-                    }`}
-                    style={
-                      item.id === selectedRelationId
-                        ? ({ "--relation-accent": colorFromSeed(item.id) } as React.CSSProperties)
-                        : undefined
-                    }
-                    onClick={() => setSelectedRelationId(item.id)}
-                  >
-                    <div className="content-head">
-                      <strong>
-                        <HighlightText
-                          text={`${item.subject_name} → ${item.object_name}`}
-                          terms={[item.subject_name, item.object_name]}
-                        />
-                      </strong>
-                      <span className="relation-badge">
-                        <HighlightText text={item.relation} terms={[item.relation]} />
-                      </span>
-                    </div>
-                    <div className="content-scroll">
-                      <p>
-                        <HighlightText
-                          text={item.passage}
-                          terms={[item.subject_name, item.object_name, item.relation, ...highlightTerms]}
-                        />
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-              <div className="evidence-list">
-                {trace.trace.grounded_passages.map((item) => (
-                  <div
-                    key={item.id}
-                    ref={(node) => {
-                      evidenceRefs.current[item.id] = node;
-                    }}
-                    className={`evidence-card ${
-                      evidenceMatches.has(item.id) ? "matched" : selectedRelationId ? "dimmed" : ""
-                    }`}
-                  >
-                    <label>{item.docment_id || item.id}</label>
-                    {item.matched_relation_ids?.length ? (
-                      <div className="tag-row evidence-tags">
-                        {item.matched_relation_ids.map((relationId) => {
-                          const relation = trace.trace.result_relations.find((entry) => entry.id === relationId);
-                          const label = relation
-                            ? `${relation.subject_name} → ${relation.relation} → ${relation.object_name}`
-                            : relationId;
-                          return (
-                            <button
-                              key={relationId}
-                              type="button"
-                              className={`evidence-tag ${relationId === selectedRelationId ? "active" : ""}`}
-                              style={
-                                relationId === selectedRelationId
-                                  ? ({ "--relation-accent": colorFromSeed(relationId) } as React.CSSProperties)
-                                  : undefined
-                              }
-                              onClick={() => setSelectedRelationId(relationId)}
-                            >
-                              {label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : null}
-                    <div className="content-scroll evidence-scroll">
-                      <p>
-                        <HighlightText text={item.passage} terms={highlightTerms} />
-                      </p>
-                    </div>
+              <section className="answer-section answer-section-primary">
+                <div className="answer-section-head">
+                  <div className="answer-section-title">
+                    <Bot size={18} />
+                    <strong>最终答案</strong>
                   </div>
-                ))}
-              </div>
+                  <span className="answer-section-meta">{trace.search.kb_id}</span>
+                </div>
+                <div className="answer-summary">
+                  <div>
+                    <p>
+                      {answer?.answer || "知识库中还没有生成正式回答，请先检查后端 /api/search/answer 是否可用。"}
+                    </p>
+                    <small className="answer-section-meta">
+                      命中 {trace.search.results.length} 条关系，回查 {trace.search.grounded_passages.length} 段证据。
+                    </small>
+                    {answer?.retrieval_query ? (
+                      <small className="answer-retrieval-query">
+                        检索改写：<HighlightText text={answer.retrieval_query} terms={highlightTerms} />
+                      </small>
+                    ) : null}
+                  </div>
+                </div>
+              </section>
+
+              <section className="answer-section">
+                <div className="answer-section-head">
+                  <div className="answer-section-title">
+                    <BrainCircuit size={18} />
+                    <strong>关系摘要</strong>
+                  </div>
+                  <span className="answer-section-meta">用于解释命中的图谱关系</span>
+                </div>
+                <div className="relation-list">
+                  {trace.trace.result_relations.map((item, index) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`relation-card interactive-card ${
+                        item.id === selectedRelationId ? "selected" : ""
+                      }`}
+                      style={
+                        item.id === selectedRelationId
+                          ? ({ "--relation-accent": colorFromSeed(item.id) } as React.CSSProperties)
+                          : undefined
+                      }
+                      onClick={() => setSelectedRelationId(item.id)}
+                    >
+                      <div className="content-head">
+                        <div className="relation-card-title">
+                          <span className="relation-rank">#{index + 1}</span>
+                          <strong>
+                            <HighlightText
+                              text={`${item.subject_name} → ${item.object_name}`}
+                              terms={[item.subject_name, item.object_name]}
+                            />
+                          </strong>
+                        </div>
+                        <span className="relation-badge">
+                          <HighlightText text={item.relation} terms={[item.relation]} />
+                        </span>
+                      </div>
+                      <div className="relation-triple-line">
+                        <HighlightText
+                          text={`${item.subject_name} -- ${item.relation} --> ${item.object_name}`}
+                          terms={[item.subject_name, item.object_name, item.relation]}
+                        />
+                      </div>
+                      <div className="content-scroll">
+                        <p>
+                          <HighlightText
+                            text={item.describe || item.passage}
+                            terms={[item.subject_name, item.object_name, item.relation, item.describe || "", ...highlightTerms]}
+                          />
+                        </p>
+                      </div>
+                      <div className="relation-score-line">相关度 {item.score.toFixed(3)}</div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="answer-section">
+                <div className="answer-section-head">
+                  <div className="answer-section-title">
+                    <Cpu size={18} />
+                    <strong>证据原文</strong>
+                  </div>
+                  <span className="answer-section-meta">用于支撑最终回答</span>
+                </div>
+                <div className="evidence-list">
+                  {trace.trace.grounded_passages.map((item, index) => (
+                    <div
+                      key={item.id}
+                      ref={(node) => {
+                        evidenceRefs.current[item.id] = node;
+                      }}
+                      className={`evidence-card ${
+                        evidenceMatches.has(item.id) ? "matched" : selectedRelationId ? "dimmed" : ""
+                      }`}
+                    >
+                      <div className="evidence-head">
+                        <label>{item.docment_id || item.id}</label>
+                        <span className="evidence-index">证据 {index + 1}</span>
+                      </div>
+                      {item.matched_relation_ids?.length ? (
+                        <div className="tag-row evidence-tags">
+                          {item.matched_relation_ids.map((relationId) => {
+                            const relation = trace.trace.result_relations.find((entry) => entry.id === relationId);
+                            const label = relation
+                              ? `${relation.subject_name} → ${relation.relation} → ${relation.object_name}`
+                              : relationId;
+                            return (
+                              <button
+                                key={relationId}
+                                type="button"
+                                className={`evidence-tag ${relationId === selectedRelationId ? "active" : ""}`}
+                                style={
+                                  relationId === selectedRelationId
+                                    ? ({ "--relation-accent": colorFromSeed(relationId) } as React.CSSProperties)
+                                    : undefined
+                                }
+                                onClick={() => setSelectedRelationId(relationId)}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                      <div className="content-scroll evidence-scroll">
+                        <p>
+                          <HighlightText text={item.passage} terms={highlightTerms} />
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
             </div>
           ) : (
             <div className="empty-panel">还没有查询结果。</div>

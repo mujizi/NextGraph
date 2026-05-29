@@ -92,6 +92,27 @@ def _normalize_relation_text(text: str, *, max_bytes: int) -> str:
     normalized = normalized.strip(" \t\r\n,，。；;：:、!！?？()（）[]【】\"'“”‘’")
     return _truncate_utf8(normalized, max_bytes)
 
+
+def _normalize_describe_text(text: str, *, max_bytes: int) -> str:
+    normalized = re.sub(r"\s+", " ", (text or "").strip())
+    normalized = normalized.strip(" \t\r\n")
+    return _truncate_utf8(normalized, max_bytes)
+
+
+def _merge_relation_descriptions(existing: str, incoming: str, *, max_bytes: int) -> str:
+    existing = (existing or "").strip()
+    incoming = (incoming or "").strip()
+    if not existing:
+        return _truncate_utf8(incoming, max_bytes)
+    if not incoming or incoming == existing:
+        return _truncate_utf8(existing, max_bytes)
+
+    merged_parts: list[str] = []
+    for part in [existing, incoming]:
+        if part and part not in merged_parts:
+            merged_parts.append(part)
+    return _truncate_utf8("；".join(merged_parts), max_bytes)
+
 def merge_json_items(items: List[Dict], max_chars: int, overlap_chars: int = 0) -> List[str]:
     """将碎片化的 JSON items 合并，并切分超长块以避免 embedding 上下文超限。"""
     merged_chunks = []
@@ -224,6 +245,7 @@ async def process_vectorization_task(task_id: str, request: VectorizationRequest
         MAX_PASSAGE_LEN = 16000
         MAX_NAME_LEN = 500
         MAX_RELATION_LEN = 1000
+        MAX_DESCRIBE_LEN = 4000
 
         # 首先收集所有本次提取到的实体名称，准备批量查询
         all_entity_names = set()
@@ -251,10 +273,14 @@ async def process_vectorization_task(task_id: str, request: VectorizationRequest
             
             for trip in item["triplets"]:
                 subj, rel, obj = trip["subject"], trip["relation"], trip["object"]
+                describe = trip.get("describe", "")
                 if not subj or not obj: continue
                 subj = _normalize_entity_text(subj, max_bytes=MAX_NAME_LEN)
                 obj = _normalize_entity_text(obj, max_bytes=MAX_NAME_LEN)
                 rel = _normalize_relation_text(rel, max_bytes=MAX_RELATION_LEN)
+                describe = _normalize_describe_text(describe, max_bytes=MAX_DESCRIBE_LEN)
+                if not describe:
+                    describe = _normalize_describe_text(f"{subj}{rel}{obj}", max_bytes=MAX_DESCRIBE_LEN)
                 if not subj or not obj or not rel:
                     logger.info("跳过异常三元组: subject=%r relation=%r object=%r", trip.get("subject", "")[:80], trip.get("relation", "")[:80], trip.get("object", "")[:80])
                     continue
@@ -281,6 +307,7 @@ async def process_vectorization_task(task_id: str, request: VectorizationRequest
                         "subject_id": entity_name_to_id[subj],
                         "object_id": entity_name_to_id[obj],
                         "relation": rel,
+                        "describe": describe,
                         "passage": chunk_text,
                         "passage_ids": [c_id],
                         "embedding": [],
@@ -288,6 +315,11 @@ async def process_vectorization_task(task_id: str, request: VectorizationRequest
                 else:
                     if c_id not in existing_relation["passage_ids"]:
                         existing_relation["passage_ids"].append(c_id)
+                    existing_relation["describe"] = _merge_relation_descriptions(
+                        existing_relation.get("describe", ""),
+                        describe,
+                        max_bytes=MAX_DESCRIBE_LEN,
+                    )
                     # Keep the longest supporting passage as the representative text.
                     if len(chunk_text) > len(existing_relation.get("passage", "")):
                         existing_relation["passage"] = chunk_text
@@ -314,7 +346,10 @@ async def process_vectorization_task(task_id: str, request: VectorizationRequest
         embed_tasks = []
         for p in passages_payload: embed_tasks.append(wrapped_embed(p, "passage"))
         for e in entities_payload: embed_tasks.append(wrapped_embed(e, "name"))
-        for r in relations_payload: embed_tasks.append(wrapped_embed(r, "relation"))
+        for r in relations_payload:
+            if not r.get("describe"):
+                r["describe"] = r.get("relation", "")
+            embed_tasks.append(wrapped_embed(r, "describe"))
         
         v_count, total_v = 0, len(embed_tasks)
         for task in asyncio.as_completed(embed_tasks):

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from backend.app.core.config import Settings
-from backend.app.search.local_global_hybrid.schemas import SearchMode, SearchRequest
+from backend.app.search.local_global_hybrid.schemas import RagAnswerRequest, SearchMode, SearchRequest
 from backend.app.search.local_global_hybrid.service import SearchService
 
 
@@ -24,6 +24,22 @@ class FakeQueryEntityExtractor:
         return []
 
 
+class FakeQueryFactRewriter:
+    def rewrite(self, query: str, *, user_id: str, kb_id: str) -> str:
+        if query == "alice query":
+            return "Alice relation fact"
+        return query
+
+
+class FakeAnswerGenerator:
+    def generate(self, *, query: str, retrieval_query: str, context: str) -> str:
+        assert query == "alice query"
+        assert retrieval_query == "Alice relation fact"
+        assert "Knowledge Graph Relation Summaries" in context
+        assert "Grounded Evidence Passages" in context
+        return "Alice and Bob know each other, and Carol mentored Alice."
+
+
 class FakeRepository:
     def __init__(self):
         self.entity_rows = [
@@ -32,10 +48,10 @@ class FakeRepository:
             {"id": "ent_carol", "name": "Carol", "relation_ids": ["rel_parent", "rel_works"], "user_id": "u1", "kb_id": "kb1"},
         ]
         self.relation_rows = [
-            {"id": "rel_knows", "subject_id": "ent_alice", "object_id": "ent_bob", "relation": "knows", "passage": "Alice knows Bob from school.", "passage_ids": ["p1"], "docment_id": "doc-a", "user_id": "u1", "kb_id": "kb1"},
-            {"id": "rel_parent", "subject_id": "ent_carol", "object_id": "ent_alice", "relation": "mentored", "passage": "Carol mentored Alice during college.", "passage_ids": ["p2"], "docment_id": "doc-b", "user_id": "u1", "kb_id": "kb1"},
-            {"id": "rel_works", "subject_id": "ent_bob", "object_id": "ent_carol", "relation": "works with", "passage": "Bob works with Carol at the lab.", "passage_ids": ["p3"], "docment_id": "doc-c", "user_id": "u1", "kb_id": "kb1"},
-            {"id": "rel_ignored", "subject_id": "ent_bob", "object_id": "ent_alice", "relation": "ignores", "passage": "Bob ignores Alice.", "passage_ids": ["p4"], "docment_id": "doc-d", "user_id": "u2", "kb_id": "kb2"},
+            {"id": "rel_knows", "subject_id": "ent_alice", "object_id": "ent_bob", "relation": "knows", "describe": "Alice and Bob know each other from school.", "passage": "Alice knows Bob from school.", "passage_ids": ["p1"], "docment_id": "doc-a", "user_id": "u1", "kb_id": "kb1"},
+            {"id": "rel_parent", "subject_id": "ent_carol", "object_id": "ent_alice", "relation": "mentored", "describe": "Carol mentored Alice during college.", "passage": "Carol mentored Alice during college.", "passage_ids": ["p2"], "docment_id": "doc-b", "user_id": "u1", "kb_id": "kb1"},
+            {"id": "rel_works", "subject_id": "ent_bob", "object_id": "ent_carol", "relation": "works with", "describe": "Bob and Carol work together at the lab.", "passage": "Bob works with Carol at the lab.", "passage_ids": ["p3"], "docment_id": "doc-c", "user_id": "u1", "kb_id": "kb1"},
+            {"id": "rel_ignored", "subject_id": "ent_bob", "object_id": "ent_alice", "relation": "ignores", "describe": "Bob ignores Alice.", "passage": "Bob ignores Alice.", "passage_ids": ["p4"], "docment_id": "doc-d", "user_id": "u2", "kb_id": "kb2"},
         ]
         self.passage_rows = [
             {"id": "p1", "passage": "Alice knows Bob from school.", "docment_id": "doc-a", "user_id": "u1", "kb_id": "kb1"},
@@ -84,8 +100,10 @@ def build_service() -> SearchService:
     return SearchService(
         settings=settings,
         repository=FakeRepository(),
-        embedder=FakeEmbedder({"alice query": [1.0, 0.0, 0.0, 0.0], "Alice": [0.9, 0.0, 0.0, 0.0], "Noise": [0.2, 0.0, 0.0, 0.0]}),
+        embedder=FakeEmbedder({"alice query": [1.0, 0.0, 0.0, 0.0], "Alice relation fact": [1.0, 0.0, 0.0, 0.0], "Alice": [0.9, 0.0, 0.0, 0.0], "Noise": [0.2, 0.0, 0.0, 0.0]}),
         query_entity_extractor=FakeQueryEntityExtractor(),
+        query_fact_rewriter=FakeQueryFactRewriter(),
+        answer_generator=FakeAnswerGenerator(),
     )
 
 
@@ -98,6 +116,7 @@ def test_triple_search_expands_subgraph_from_seed_entities_and_relations():
     assert response.results[0].subject_name == "Carol"
     assert response.results[0].object_name == "Alice"
     assert response.results[0].relation == "mentored"
+    assert response.results[0].describe == "Carol mentored Alice during college."
     assert response.metadata["route"]["query_entities"] == ["Alice"]
     assert response.metadata["route"]["expanded_relation_count"] == 3
     assert response.metadata["route"]["expansion_history"][0]["operation"] == "init_merge"
@@ -133,3 +152,13 @@ def test_low_score_noise_is_filtered_out():
 
     assert response.results == []
     assert response.grounded_passages == []
+
+
+def test_answer_uses_relation_describe_and_grounded_passages():
+    service = build_service()
+    response = service.answer(RagAnswerRequest(query="alice query", user_id="u1", kb_id="kb1", mode=SearchMode.hybrid))
+
+    assert response.retrieval_query == "Alice relation fact"
+    assert response.answer == "Alice and Bob know each other, and Carol mentored Alice."
+    assert response.results
+    assert response.grounded_passages

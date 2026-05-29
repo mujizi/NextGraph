@@ -23,3 +23,51 @@
 6:37:35 PM [vite] server restarted.
 10:54:48 AM [vite] ../.env changed, restarting server...
 10:54:49 AM [vite] server restarted.
+3:52:59 PM [vite] ../.env changed, restarting server...
+3:52:59 PM [vite] server restarted.
+9:58:46 AM [vite] ../.env changed, restarting server...
+9:58:46 AM [vite] server restarted.
+4:32:36 PM [vite] http proxy error: /files
+Error: connect ECONNREFUSED 127.0.0.1:5192
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+4:32:36 PM [vite] http proxy error: /database_build/catalog?milvus_db=crx_0515&user_id=admin_user
+Error: connect ECONNREFUSED 127.0.0.1:5192
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+4:33:11 PM [vite] http proxy error: /database_build/latest?kb_id=0
+Error: connect ECONNREFUSED 127.0.0.1:5192
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+4:33:11 PM [vite] http proxy error: /database_build/latest?kb_id=05
+Error: connect ECONNREFUSED 127.0.0.1:5192
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+4:33:12 PM [vite] http proxy error: /files
+Error: connect ECONNREFUSED 127.0.0.1:5192
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+4:33:12 PM [vite] http proxy error: /database_build/catalog?milvus_db=crx_0515&user_id=admin_user
+Error: connect ECONNREFUSED 127.0.0.1:5192
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+4:33:12 PM [vite] http proxy error: /files
+Error: connect ECONNREFUSED 127.0.0.1:5192
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+4:33:12 PM [vite] http proxy error: /database_build/catalog?milvus_db=crx_0515&user_id=admin_user
+Error: connect ECONNREFUSED 127.0.0.1:5192
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+4:33:16 PM [vite] http proxy error: /database_build/latest?kb_id=0
+Error: connect ECONNREFUSED 127.0.0.1:5192
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+4:33:17 PM [vite] http proxy error: /database_build/latest?kb_id=05
+Error: connect ECONNREFUSED 127.0.0.1:5192
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+4:33:18 PM [vite] http proxy error: /database_build/latest?kb_id=052
+Error: connect ECONNREFUSED 127.0.0.1:5192
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+4:33:18 PM [vite] http proxy error: /database_build/latest?kb_id=0528
+Error: connect ECONNREFUSED 127.0.0.1:5192
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+5:11:01 PM [vite] ../.env changed, restarting server...
+5:11:01 PM [vite] server restarted.
+9:21:53 AM [vite] http proxy error: /files
+Error: connect ECONNREFUSED 127.0.0.1:5192
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+9:21:53 AM [vite] http proxy error: /database_build/catalog?milvus_db=crx_0515&user_id=admin_user
+Error: connect ECONNREFUSED 127.0.0.1:5192
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
