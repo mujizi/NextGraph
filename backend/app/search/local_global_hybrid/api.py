@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, Request
 
 from backend.app.search.local_global_hybrid.schemas import (
     EntityNeighborhoodRequest,
+    ExternalQueryRequest,
+    ExternalQueryResponse,
     RagAnswerRequest,
     RagAnswerResponse,
     SearchMode,
@@ -82,3 +84,62 @@ def search_answer(
     service: SearchService = Depends(get_search_service),
 ) -> RagAnswerResponse:
     return service.answer(request)
+
+
+@router.post("/external/query", response_model=ExternalQueryResponse)
+def external_query(
+    request: ExternalQueryRequest,
+    service: SearchService = Depends(get_search_service),
+) -> ExternalQueryResponse:
+    if request.include_answer:
+        answer_response = service.answer(
+            RagAnswerRequest(
+                query=request.question,
+                user_id=request.user_id,
+                kb_id=request.kb_id,
+                mode=request.mode,
+                top_k=request.top_k,
+                entity_top_k=request.entity_top_k,
+                relation_top_k=request.relation_top_k,
+                expansion_degree=request.expansion_degree,
+                answer_top_k=request.answer_top_k,
+                passage_top_k=request.passage_top_k,
+            )
+        )
+        return ExternalQueryResponse(
+            question=request.question,
+            user_id=request.user_id,
+            kb_id=request.kb_id,
+            mode=answer_response.mode,
+            answer=answer_response.answer,
+            retrieval_query=answer_response.retrieval_query,
+            results=answer_response.results,
+            grounded_passages=answer_response.grounded_passages,
+            entity_hits=[],
+            metadata=answer_response.metadata,
+        )
+
+    search_response = service.search(
+        SearchRequest(
+            query=request.question,
+            user_id=request.user_id,
+            kb_id=request.kb_id,
+            mode=request.mode,
+            top_k=request.top_k,
+            entity_top_k=request.entity_top_k,
+            relation_top_k=request.relation_top_k,
+            expansion_degree=request.expansion_degree,
+        )
+    )
+    return ExternalQueryResponse(
+        question=request.question,
+        user_id=request.user_id,
+        kb_id=request.kb_id,
+        mode=search_response.mode,
+        answer=None,
+        retrieval_query=str(search_response.metadata.get("retrieval_query") or request.question),
+        results=search_response.results,
+        grounded_passages=search_response.grounded_passages,
+        entity_hits=search_response.entity_hits,
+        metadata=search_response.metadata,
+    )

@@ -13,9 +13,24 @@ class Settings(BaseSettings):
     backend_host: str = Field(default="0.0.0.0", description="Backend bind host.")
     backend_port: int = Field(default=5190, ge=1, le=65535, description="Backend bind port.")
 
+    vector_store_provider: Literal["milvus", "tencent"] = Field(
+        default="milvus",
+        description="Active vector database provider.",
+    )
+    vector_db_database: str = Field(
+        default="crx",
+        validation_alias=AliasChoices("NEXTGRAPH_VECTOR_DB_DATABASE"),
+        description="Logical vector database name used by the active provider.",
+    )
+
     milvus_uri: str = Field(default="http://10.1.80.16:19530", description="Milvus HTTP endpoint.")
     milvus_db: str = Field(default="crx", description="Milvus database name.")
     milvus_token: Optional[str] = Field(default=None, description="Optional Milvus auth token.")
+
+    tencent_vectordb_url: str = Field(default="", description="Tencent VectorDB endpoint URL.")
+    tencent_vectordb_username: str = Field(default="root", description="Tencent VectorDB username.")
+    tencent_vectordb_key: Optional[str] = Field(default=None, description="Tencent VectorDB API key.")
+    tencent_vectordb_database: str = Field(default="default", description="Tencent VectorDB database name.")
 
     entities_collection: str = Field(default="Entities", description="Entity collection name.")
     relations_collection: str = Field(default="Relations", description="Relation collection name.")
@@ -63,7 +78,6 @@ class Settings(BaseSettings):
         ge=256,
         description="Max completion tokens for Azure OpenAI chat extraction calls.",
     )
-
     vector_graph_rag_src: str = Field(
         default="/opt/vector-graph-rag/src",
         description="Path to vector-graph-rag source tree.",
@@ -76,6 +90,12 @@ class Settings(BaseSettings):
     relation_number_threshold: int = Field(default=1000, ge=1)
     entity_score_threshold: float = Field(default=0.2, ge=-1.0, le=1.0)
     relation_score_threshold: float = Field(default=0.3, ge=-1.0, le=1.0)
+    answer_context_score_threshold: float = Field(
+        default=0.45,
+        ge=-1.0,
+        le=1.0,
+        description="Minimum relation/passage score allowed into answer-generation context.",
+    )
     hybrid_semantic_weight: float = Field(default=0.55, gt=0.0, lt=1.0)
     hybrid_triple_weight: float = Field(default=0.45, gt=0.0, lt=1.0)
 

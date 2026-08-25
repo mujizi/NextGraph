@@ -1,20 +1,35 @@
+# Frontend
 frontend/node_modules/
 frontend/dist/
-backend/.venv/
-.env
-backend/.env
-backend/storage/database_build_manifest.json
-backend/storage/mineru_output/
-backend/storage/source_text/
-backend/storage/uploads/
 
-text_file/
-__pycache__/
-.DS_Store
-.run
+# Backend virtual environment
+backend/.venv/
+
+# Environment variables
 .env
 .env.*
+backend/.env
+
+# Keep env examples
 !.env.example
 !.env.*.example
+
+# Runtime / generated storage
+backend/storage/
+
+# Temporary text files
+text_file/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# macOS
+.DS_Store
+
+# IDE / runtime
+.run/
+
+# Private keys
 *.pem
 *.key

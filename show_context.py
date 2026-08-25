@@ -15,18 +15,18 @@ from backend.app.vector_database.search.repository import MilvusGraphRepository
 
 async def main():
     settings = get_settings()
-    settings.milvus_db = "crx_text0515"
+    settings.milvus_db = "crx_0529"
     
     repository = MilvusGraphRepository(settings)
     embedder = build_query_embedder(settings)
     service = SearchService(settings=settings, repository=repository, embedder=embedder)
 
-    query = "冰箱温度设置后多久会固定"
+    query = "人物小传怎么写"
     
     request = SearchRequest(
         query=query,
         user_id="admin_user",
-        kb_id="0521",
+        kb_id="0529",
         mode=SearchMode.hybrid,
         top_k=8,
         entity_top_k=10,

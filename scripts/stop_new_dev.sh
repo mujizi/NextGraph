@@ -12,7 +12,9 @@ if [ -f "$ROOT_DIR/.env" ]; then
 fi
 
 BACKEND_PORT="${NEXTGRAPH_BACKEND_PORT:-5190}"
-FRONTEND_PORT="${NEXTGRAPH_FRONTEND_PORT:-5173}"
+QUERY_API_PORT="${NEXTGRAPH_QUERY_API_PORT:-8710}"
+ENTITY_GRAPH_PORT="${NEXTGRAPH_ENTITY_GRAPH_PORT:-8711}"
+FRONTEND_PORT="${NEXTGRAPH_NEW_FRONTEND_PORT:-${NEXTGRAPH_FRONTEND_PORT:-5173}}"
 
 kill_descendants() {
   local parent_pid="$1"
@@ -79,17 +81,28 @@ stop_port() {
   fi
 }
 
-stop_pid_file "$RUN_DIR/backend-${BACKEND_PORT}.pid" "后端"
-stop_pid_file "$RUN_DIR/frontend-${FRONTEND_PORT}.pid" "前端"
+stop_pid_file "$RUN_DIR/new-backend-${BACKEND_PORT}.pid" "旧后端"
+stop_pid_file "$RUN_DIR/new-backend-query-${QUERY_API_PORT}-entity-${ENTITY_GRAPH_PORT}.pid" "暴露后端"
+stop_pid_file "$RUN_DIR/new-frontend-${FRONTEND_PORT}.pid" "新前端"
 
-stop_port "$BACKEND_PORT" "后端"
-stop_port "$FRONTEND_PORT" "前端"
+stop_port "$BACKEND_PORT" "旧后端"
+stop_port "$QUERY_API_PORT" "查询后端"
+stop_port "$ENTITY_GRAPH_PORT" "实体图后端"
+stop_port "$FRONTEND_PORT" "新前端"
 
-wait_for_port_release "$BACKEND_PORT" "后端" || {
-  force_stop_port "$BACKEND_PORT" "后端"
-  wait_for_port_release "$BACKEND_PORT" "后端"
+wait_for_port_release "$BACKEND_PORT" "旧后端" || {
+  force_stop_port "$BACKEND_PORT" "旧后端"
+  wait_for_port_release "$BACKEND_PORT" "旧后端"
 }
-wait_for_port_release "$FRONTEND_PORT" "前端" || {
-  force_stop_port "$FRONTEND_PORT" "前端"
-  wait_for_port_release "$FRONTEND_PORT" "前端"
+wait_for_port_release "$QUERY_API_PORT" "查询后端" || {
+  force_stop_port "$QUERY_API_PORT" "查询后端"
+  wait_for_port_release "$QUERY_API_PORT" "查询后端"
+}
+wait_for_port_release "$ENTITY_GRAPH_PORT" "实体图后端" || {
+  force_stop_port "$ENTITY_GRAPH_PORT" "实体图后端"
+  wait_for_port_release "$ENTITY_GRAPH_PORT" "实体图后端"
+}
+wait_for_port_release "$FRONTEND_PORT" "新前端" || {
+  force_stop_port "$FRONTEND_PORT" "新前端"
+  wait_for_port_release "$FRONTEND_PORT" "新前端"
 }

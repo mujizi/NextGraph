@@ -8,17 +8,15 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 from fastapi import APIRouter, HTTPException, Request
-from pymilvus import Collection, connections
 from pydantic import BaseModel, Field, field_validator
 
 from backend.app.parse_file.api import DEFAULT_OUTPUT_ROOT
 from backend.app.parse_file.mineru_service import TASK_MANAGER
+from backend.app.vector_database.providers.factory import get_vector_store
 from backend.app.vectorization_pipeline.api import (
     VectorizationRequest,
-    milvus_client,
     process_vectorization_task,
     tasks_db as vector_tasks_db,
 )
@@ -28,11 +26,15 @@ router = APIRouter(prefix="/database_build", tags=["database_build"])
 TASK_STORE = (
     Path(__file__).resolve().parent.parent.parent / "storage" / "database_build_tasks.json"
 ).resolve()
+LIBRARY_FILE_STORE = (
+    Path(__file__).resolve().parent.parent.parent / "storage" / "database_build_library_files.json"
+).resolve()
 FINISHED_PARSE_STATUSES = {"completed", "failed", "partial_failed"}
 FINISHED_BUILD_STATUSES = {"completed", "failed", "partial_failed"}
 
 _tasks_lock = threading.Lock()
 _tasks: dict[str, dict[str, Any]] = {}
+_library_files: dict[str, dict[str, Any]] = {}
 
 
 class DatabaseBuildRequest(BaseModel):
@@ -68,6 +70,40 @@ class DatabaseBuildRequest(BaseModel):
         return gpu_ids
 
 
+class DatabaseBuildResumeRequest(BaseModel):
+    source_task_id: str = Field(..., min_length=1)
+    file_paths: list[str] = Field(default_factory=list)
+    user_id: str = Field("admin_user", min_length=1)
+    milvus_db: str = Field("crx", min_length=1)
+    output_root: str = Field(DEFAULT_OUTPUT_ROOT)
+    gpus: list[str] = Field(default_factory=lambda: ["0"], min_length=1)
+    workers_per_gpu: int = Field(1, ge=1, le=16)
+    method: str = Field("auto", pattern="^(auto|txt|ocr)$")
+    lang: str | None = None
+    backend: str = "pipeline"
+    start_page: int | None = None
+    end_page: int | None = None
+    formula: bool = True
+    table: bool = True
+    source: str | None = None
+    vlm_url: str | None = None
+    vector_concurrency: int | None = Field(default=None, ge=1, le=64)
+    extract_concurrency: int = Field(10, ge=1, le=64)
+    embedding_concurrency: int = Field(10, ge=1, le=64)
+    max_chunk_chars: int = Field(1500, ge=200, le=12000)
+    chunk_overlap_chars: int = Field(150, ge=0, le=4000)
+    embedding_model: str = "text-embedding-3-small"
+    reuse_existing_json: bool = True
+
+    @field_validator("gpus")
+    @classmethod
+    def normalize_resume_gpus(cls, value: list[str]) -> list[str]:
+        gpu_ids = [str(item).strip() for item in value if str(item).strip()]
+        if not gpu_ids:
+            raise ValueError("gpus 不能为空")
+        return gpu_ids
+
+
 def _load_tasks() -> None:
     global _tasks
     if not TASK_STORE.exists():
@@ -80,13 +116,34 @@ def _load_tasks() -> None:
         _tasks = data
 
 
+def _load_library_files() -> None:
+    global _library_files
+    if not LIBRARY_FILE_STORE.exists():
+        return
+    try:
+        data = json.loads(LIBRARY_FILE_STORE.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return
+    if isinstance(data, dict):
+        _library_files = data
+
+
 def _save_tasks() -> None:
     TASK_STORE.parent.mkdir(parents=True, exist_ok=True)
     TASK_STORE.write_text(json.dumps(_tasks, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _save_library_files() -> None:
+    LIBRARY_FILE_STORE.parent.mkdir(parents=True, exist_ok=True)
+    LIBRARY_FILE_STORE.write_text(json.dumps(_library_files, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def _now() -> float:
     return time.time()
+
+
+def _library_scope_key(*, kb_id: str, user_id: str, milvus_db: str) -> str:
+    return f"{milvus_db}::{user_id}::{kb_id}"
 
 
 def _safe_docment_id(kb_id: str, path: str, index: int) -> str:
@@ -199,6 +256,75 @@ def _vector_json_from_plain_text(file_path: str, task_id: str) -> str | None:
     return str(fallback_path)
 
 
+def _ensure_library_scope(*, kb_id: str, user_id: str, milvus_db: str) -> dict[str, Any]:
+    scope_key = _library_scope_key(kb_id=kb_id, user_id=user_id, milvus_db=milvus_db)
+    scope = _library_files.setdefault(
+        scope_key,
+        {
+            "kb_id": kb_id,
+            "user_id": user_id,
+            "milvus_db": milvus_db,
+            "updated_at": 0,
+            "files": {},
+        },
+    )
+    scope.setdefault("files", {})
+    scope["updated_at"] = _now()
+    return scope
+
+
+def _sync_library_file_entry(task: dict[str, Any], file_item: dict[str, Any]) -> None:
+    kb_id = str(task.get("kb_id") or "").strip()
+    user_id = str(task.get("user_id") or "").strip()
+    milvus_db = str(task.get("milvus_db") or "crx").strip() or "crx"
+    file_path = str(file_item.get("path") or "").strip()
+    if not kb_id or not user_id or not file_path:
+        return
+
+    scope = _ensure_library_scope(kb_id=kb_id, user_id=user_id, milvus_db=milvus_db)
+    scope["files"][file_path] = {
+        "name": file_item.get("name") or Path(file_path).name,
+        "path": file_path,
+        "stage": file_item.get("stage"),
+        "state": file_item.get("state"),
+        "progress": file_item.get("progress", 0),
+        "parse_progress": file_item.get("parse_progress", 0),
+        "vector_progress": file_item.get("vector_progress", 0),
+        "summary": file_item.get("summary") or {},
+        "json_path": file_item.get("json_path"),
+        "resume_action": file_item.get("resume_action"),
+        "last_task_id": task.get("task_id"),
+        "updated_at": _now(),
+    }
+
+
+def _sync_task_files_to_library(task: dict[str, Any]) -> None:
+    for file_item in task.get("files") or []:
+        _sync_library_file_entry(task, file_item)
+
+
+def _rebuild_library_files_from_tasks() -> None:
+    _library_files.clear()
+    for task in sorted(_tasks.values(), key=lambda item: float(item.get("updated_at", 0)), reverse=True):
+        kb_id = str(task.get("kb_id") or "").strip()
+        user_id = str(task.get("user_id") or "").strip()
+        milvus_db = str(task.get("milvus_db") or "crx").strip() or "crx"
+        if not kb_id or not user_id:
+            continue
+        scope = _ensure_library_scope(kb_id=kb_id, user_id=user_id, milvus_db=milvus_db)
+        for file_item in reversed(task.get("files") or []):
+            file_path = str(file_item.get("path") or "").strip()
+            if not file_path or file_path in scope["files"]:
+                continue
+            _sync_library_file_entry(task, file_item)
+
+
+def _library_summary_from_registry(*, kb_id: str, user_id: str, milvus_db: str) -> dict[str, Any]:
+    scope = _library_files.get(_library_scope_key(kb_id=kb_id, user_id=user_id, milvus_db=milvus_db), {})
+    synthetic_task = {"files": list((scope.get("files") or {}).values())}
+    return _task_summary(synthetic_task)
+
+
 def _set_task(task_id: str, **updates: Any) -> None:
     with _tasks_lock:
         task = _tasks.get(task_id)
@@ -208,6 +334,7 @@ def _set_task(task_id: str, **updates: Any) -> None:
         task["updated_at"] = _now()
         task["progress_percent"] = _task_progress(task)
         _save_tasks()
+        _save_library_files()
 
 
 def _update_file(task_id: str, file_path: str, **updates: Any) -> None:
@@ -218,10 +345,12 @@ def _update_file(task_id: str, file_path: str, **updates: Any) -> None:
         for item in task["files"]:
             if item["path"] == file_path:
                 item.update(updates)
+                _sync_library_file_entry(task, item)
                 break
         task["updated_at"] = _now()
         task["progress_percent"] = _task_progress(task)
         _save_tasks()
+        _save_library_files()
 
 
 def _task_progress(task: dict[str, Any]) -> float:
@@ -233,6 +362,14 @@ def _task_progress(task: dict[str, Any]) -> float:
 
 def _public_task(task: dict[str, Any]) -> dict[str, Any]:
     return json.loads(json.dumps(task, ensure_ascii=False))
+
+
+def _get_vector_store(request: Request):
+    store = getattr(request.app.state, "vector_store", None)
+    if store is None:
+        store = get_vector_store(request.app.state.settings)
+        request.app.state.vector_store = store
+    return store
 
 
 def _safe_ratio(numerator: int | float, denominator: int | float) -> float:
@@ -282,6 +419,230 @@ def _task_summary(task: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _mark_task_interrupted(task: dict[str, Any], reason: str = "后端已重启，任务被中断，可继续构建。") -> bool:
+    if str(task.get("status") or "") in FINISHED_BUILD_STATUSES:
+        return False
+
+    files = task.get("files") or []
+    completed = 0
+    failed = 0
+    changed = False
+    for item in files:
+        stage = str(item.get("stage") or "")
+        if stage == "completed":
+            completed += 1
+            continue
+        if item.get("stage") != "failed" or item.get("state") != reason:
+            item["stage"] = "failed"
+            item["state"] = reason
+            changed = True
+        failed += 1
+
+    next_status = "partial_failed" if completed > 0 else "failed"
+    if (
+        task.get("status") != next_status
+        or task.get("stage") != next_status
+        or task.get("message") != reason
+        or task.get("completed") != completed
+        or task.get("failed") != failed
+    ):
+        task["status"] = next_status
+        task["stage"] = next_status
+        task["message"] = reason
+        task["completed"] = completed
+        task["failed"] = failed
+        task["updated_at"] = _now()
+        changed = True
+    return changed
+
+
+def _reconcile_interrupted_tasks() -> bool:
+    changed = False
+    for task in _tasks.values():
+        if _mark_task_interrupted(task):
+            changed = True
+    if changed:
+        _rebuild_library_files_from_tasks()
+        _save_tasks()
+        _save_library_files()
+    return changed
+
+
+def _aggregate_library_summary(tasks: list[dict[str, Any]]) -> dict[str, Any]:
+    if not tasks:
+        return _task_summary({"files": []})
+    latest_task = max(tasks, key=lambda item: float(item.get("updated_at", 0)))
+    return _library_summary_from_registry(
+        kb_id=str(latest_task.get("kb_id") or "").strip(),
+        user_id=str(latest_task.get("user_id") or "").strip(),
+        milvus_db=str(latest_task.get("milvus_db") or "crx").strip() or "crx",
+    )
+
+
+def _build_task_payload_from_resume(
+    source_task: dict[str, Any],
+    resume_request: DatabaseBuildResumeRequest,
+) -> DatabaseBuildRequest:
+    source_file_paths = [
+        str(item.get("path") or "").strip()
+        for item in source_task.get("files") or []
+        if str(item.get("path") or "").strip()
+    ]
+    if not source_file_paths:
+        raise HTTPException(status_code=400, detail="源任务没有可续跑的文件")
+
+    requested_paths = list(dict.fromkeys(path.strip() for path in (resume_request.file_paths or []) if path.strip()))
+    if requested_paths:
+        valid_paths = set(source_file_paths)
+        invalid_paths = [path for path in requested_paths if path not in valid_paths]
+        if invalid_paths:
+            raise HTTPException(status_code=400, detail=f"续跑文件不属于源任务: {invalid_paths[0]}")
+        file_paths = requested_paths
+    else:
+        file_paths = source_file_paths
+
+    return DatabaseBuildRequest(
+        file_paths=file_paths,
+        kb_id=str(source_task.get("kb_id") or "").strip(),
+        user_id=resume_request.user_id,
+        milvus_db=resume_request.milvus_db,
+        output_root=resume_request.output_root,
+        gpus=resume_request.gpus,
+        workers_per_gpu=resume_request.workers_per_gpu,
+        method=resume_request.method,
+        lang=resume_request.lang,
+        backend=resume_request.backend,
+        start_page=resume_request.start_page,
+        end_page=resume_request.end_page,
+        formula=resume_request.formula,
+        table=resume_request.table,
+        source=resume_request.source,
+        vlm_url=resume_request.vlm_url,
+        vector_concurrency=resume_request.vector_concurrency,
+        extract_concurrency=resume_request.extract_concurrency,
+        embedding_concurrency=resume_request.embedding_concurrency,
+        max_chunk_chars=resume_request.max_chunk_chars,
+        chunk_overlap_chars=resume_request.chunk_overlap_chars,
+        embedding_model=resume_request.embedding_model,
+    )
+
+
+def _clone_resume_file_entry(
+    source_file: dict[str, Any],
+    *,
+    source_task_id: str,
+    reuse_existing_json: bool,
+) -> dict[str, Any]:
+    file_path = str(source_file.get("path") or "").strip()
+    file_name = source_file.get("name") or Path(file_path).name
+    stage = str(source_file.get("stage") or "queued")
+    json_path = str(source_file.get("json_path") or "").strip()
+    json_available = bool(json_path and Path(json_path).exists() and _json_has_text_items(json_path))
+    summary = source_file.get("summary") or {}
+
+    entry = {
+        "path": file_path,
+        "name": file_name,
+        "stage": "queued",
+        "state": "等待续跑",
+        "progress": 0,
+        "parse_progress": 0,
+        "vector_progress": 0,
+        "resume_source_task_id": source_task_id,
+        "resume_source_stage": stage,
+    }
+
+    if stage == "completed":
+        entry.update(
+            {
+                "stage": "completed",
+                "state": "沿用上次成功结果",
+                "progress": 100,
+                "parse_progress": 100,
+                "vector_progress": 100,
+                "summary": summary,
+                "resume_action": "reused_completed",
+            }
+        )
+        if json_available:
+            entry["json_path"] = json_path
+        return entry
+
+    if reuse_existing_json and json_available:
+        entry.update(
+            {
+                "stage": "resume_ready",
+                "state": "复用上次解析结果，等待继续向量化",
+                "progress": 45,
+                "parse_progress": 100,
+                "json_path": json_path,
+                "resume_action": "reuse_json",
+            }
+        )
+    else:
+        entry["resume_action"] = "full_retry"
+    return entry
+
+
+def _create_task_record(
+    task_id: str,
+    payload: DatabaseBuildRequest,
+    *,
+    source_task: dict[str, Any] | None = None,
+    reuse_existing_json: bool = True,
+) -> dict[str, Any]:
+    now = _now()
+    if source_task is None:
+        files = [
+            {
+                "path": path,
+                "name": Path(path).name,
+                "stage": "queued",
+                "state": "等待中",
+                "progress": 0,
+                "parse_progress": 0,
+                "vector_progress": 0,
+            }
+            for path in payload.file_paths
+        ]
+        message = "任务已入队"
+    else:
+        source_task_id = str(source_task.get("task_id") or "").strip()
+        selected_paths = set(payload.file_paths)
+        files = [
+            _clone_resume_file_entry(
+                item,
+                source_task_id=source_task_id,
+                reuse_existing_json=reuse_existing_json,
+            )
+            for item in source_task.get("files") or []
+            if str(item.get("path") or "").strip() in selected_paths
+        ]
+        message = "续跑任务已入队"
+
+    completed = sum(1 for item in files if item.get("stage") == "completed")
+    failed = sum(1 for item in files if item.get("stage") == "failed")
+    return {
+        "task_id": task_id,
+        "status": "queued",
+        "stage": "queued",
+        "message": message,
+        "progress_percent": round(sum(float(item.get("progress", 0)) for item in files) / len(files), 2) if files else 0,
+        "kb_id": payload.kb_id,
+        "user_id": payload.user_id,
+        "milvus_db": payload.milvus_db,
+        "parse_task_id": None,
+        "created_at": now,
+        "updated_at": now,
+        "completed": completed,
+        "failed": failed,
+        "files": files,
+        "resume_from_task_id": source_task.get("task_id") if source_task else None,
+        "resume_selected_file_count": len(files) if source_task else None,
+        "resume_source_file_count": len(source_task.get("files") or []) if source_task else None,
+    }
+
+
 def _query_collection_preview(
     *,
     request: Request,
@@ -290,118 +651,13 @@ def _query_collection_preview(
     milvus_db: str,
     limit: int,
 ) -> dict[str, Any]:
-    selected_db = milvus_db or request.app.state.settings.milvus_db
-    _connect_legacy_milvus(request, selected_db)
-    collections = {
-        "entities": ("Entities", ["id", "name", "relation_ids", "user_id", "kb_id"]),
-        "relations": (
-            "Relations",
-            ["id", "subject_id", "object_id", "relation", "describe", "passage", "user_id", "kb_id"],
-        ),
-        "passages": ("Passage", ["id", "docment_id", "passage", "user_id", "kb_id"]),
-    }
-    expr = f'user_id == "{user_id}" and kb_id == "{kb_id}"'
-    data: dict[str, Any] = {
-        "kb_id": kb_id,
-        "user_id": user_id,
-        "milvus_db": selected_db,
-        "counts": {"entities": 0, "relations": 0, "passages": 0},
-        "samples": {"entities": [], "relations": [], "passages": []},
-        "top_entities": [],
-        "graph_preview": {"nodes": [], "links": []},
-    }
-
-    entity_rows: list[dict[str, Any]] = []
-    relation_rows: list[dict[str, Any]] = []
-    for key, (collection_name, output_fields) in collections.items():
-        collection = Collection(collection_name)
-        collection.load()
-        count_rows = collection.query(expr=expr, output_fields=["count(*)"])
-        matched_count = int(count_rows[0].get("count(*)", 0)) if count_rows else 0
-        rows = collection.query(
-            expr=expr,
-            output_fields=output_fields,
-            limit=max(1, min(limit, 100)),
-        )
-        # Convert RepeatedScalarContainer to list for JSON serialization
-        for row in rows:
-            for field_name, value in row.items():
-                if hasattr(value, "__class__") and "RepeatedScalarContainer" in str(value.__class__):
-                    row[field_name] = list(value)
-        
-        data["counts"][key] = matched_count
-        data["samples"][key] = rows
-        if key == "entities":
-            entity_rows = rows
-        elif key == "relations":
-            relation_rows = rows
-
-    # Collect all entity IDs involved in the relations to fetch their names
-    involved_entity_ids = set()
-    for row in relation_rows:
-        if row.get("subject_id"):
-            involved_entity_ids.add(row["subject_id"])
-        if row.get("object_id"):
-            involved_entity_ids.add(row["object_id"])
-    
-    # Also include entities from the entity samples
-    involved_entity_ids.update(row.get("id") for row in entity_rows if row.get("id"))
-    
-    # Fetch all these entities to get their names
-    all_involved_entities = []
-    if involved_entity_ids:
-        entity_collection = Collection("Entities")
-        entity_collection.load()
-        # Fetch in batches if there are many, but here we limited relations so it's fine
-        id_list_str = ", ".join([f'"{eid}"' for eid in involved_entity_ids])
-        expr_entities = f'user_id == "{user_id}" and kb_id == "{kb_id}" and id in [{id_list_str}]'
-        all_involved_entities = entity_collection.query(
-            expr=expr_entities,
-            output_fields=["id", "name"]
-        )
-
-    entity_lookup = {row.get("id"): row.get("name") or row.get("id") for row in all_involved_entities}
-    
-    top_entities = sorted(
-        (
-            {
-                "id": row.get("id"),
-                "name": row.get("name") or row.get("id"),
-                "relation_count": len(row.get("relation_ids") or []),
-            }
-            for row in entity_rows
-        ),
-        key=lambda item: item["relation_count"],
-        reverse=True,
+    selected_db = milvus_db or request.app.state.settings.vector_db_database
+    return _get_vector_store(request).query_collection_preview(
+        kb_id=kb_id,
+        user_id=user_id,
+        db_name=selected_db,
+        limit=limit,
     )
-    data["top_entities"] = top_entities[: min(8, len(top_entities))]
-
-    graph_nodes: dict[str, dict[str, Any]] = {}
-    graph_links: list[dict[str, Any]] = []
-    for row in relation_rows:
-        subject_id = row.get("subject_id")
-        object_id = row.get("object_id")
-        if not subject_id or not object_id:
-            continue
-        graph_nodes.setdefault(
-            subject_id,
-            {"id": subject_id, "name": entity_lookup.get(subject_id, subject_id), "kind": "entity"},
-        )
-        graph_nodes.setdefault(
-            object_id,
-            {"id": object_id, "name": entity_lookup.get(object_id, object_id), "kind": "entity"},
-        )
-        graph_links.append(
-            {
-                "id": row.get("id"),
-                "source": subject_id,
-                "target": object_id,
-                "label": row.get("relation") or "related_to",
-                "kind": "relation",
-            }
-        )
-    data["graph_preview"] = {"nodes": list(graph_nodes.values()), "links": graph_links}
-    return data
 
 
 def _discover_kb_ids_from_milvus(
@@ -411,44 +667,12 @@ def _discover_kb_ids_from_milvus(
     milvus_db: str,
     sample_limit: int = 20000,
 ) -> set[str]:
-    selected_db = milvus_db or request.app.state.settings.milvus_db
-    _connect_legacy_milvus(request, selected_db)
-
-    kb_ids: set[str] = set()
-    batch_size = 500
-    for collection_name in ("Entities", "Relations", "Passage"):
-        try:
-            collection = Collection(collection_name)
-            collection.load()
-        except Exception:
-            continue
-
-        scanned = 0
-        offset = 0
-        while scanned < sample_limit:
-            try:
-                rows = collection.query(
-                    expr='id != ""',
-                    output_fields=["id", "user_id", "kb_id"],
-                    limit=min(batch_size, sample_limit - scanned),
-                    offset=offset,
-                )
-            except Exception:
-                break
-            if not rows:
-                break
-            for row in rows:
-                if str(row.get("user_id") or "").strip() != user_id:
-                    continue
-                kb_id = str(row.get("kb_id") or "").strip()
-                if kb_id:
-                    kb_ids.add(kb_id)
-            batch_count = len(rows)
-            scanned += batch_count
-            offset += batch_count
-            if batch_count < min(batch_size, sample_limit - scanned + batch_count):
-                break
-    return kb_ids
+    selected_db = milvus_db or request.app.state.settings.vector_db_database
+    return _get_vector_store(request).discover_kb_ids(
+        user_id=user_id,
+        db_name=selected_db,
+        sample_limit=sample_limit,
+    )
 
 
 @router.get("/catalog/debug")
@@ -498,23 +722,15 @@ def debug_library_catalog_raw(
     milvus_db: str = "crx",
     sample_limit: int = 10,
 ) -> dict[str, Any]:
-    selected_db = milvus_db or request.app.state.settings.milvus_db
-    _connect_legacy_milvus(request, selected_db)
-
-    payload: dict[str, Any] = {"milvus_db": selected_db, "collections": {}}
-    for collection_name in ("Entities", "Relations", "Passage"):
-        collection = Collection(collection_name)
-        collection.load()
-        rows = collection.query(
-            expr='id != ""',
-            output_fields=["id", "user_id", "kb_id"],
-            limit=max(1, min(sample_limit, 100)),
+    selected_db = milvus_db or request.app.state.settings.vector_db_database
+    kb_ids = sorted(
+        _get_vector_store(request).discover_kb_ids(
+            user_id="admin_user",
+            db_name=selected_db,
+            sample_limit=max(sample_limit, 100),
         )
-        payload["collections"][collection_name] = {
-            "sample_count": len(rows),
-            "samples": rows,
-        }
-    return payload
+    )
+    return {"milvus_db": selected_db, "kb_ids": kb_ids}
 
 
 async def _vectorize_with_progress(
@@ -554,7 +770,7 @@ async def _vectorize_with_progress(
             build_task_id,
             file_path,
             stage="completed",
-            state="已写入 Milvus",
+            state="已写入向量数据库",
             vector_progress=100,
             progress=100,
             summary=state.get("summary", {}),
@@ -566,12 +782,45 @@ async def _vectorize_with_progress(
 def _run_build_task(task_id: str, payload: DatabaseBuildRequest) -> None:
     try:
         _set_task(task_id, status="running", stage="parsing", message="正在解析文档...")
-        milvus_client.use_database(payload.milvus_db)
         text_json_by_file: dict[str, str] = {}
-        mineru_files = [path for path in payload.file_paths if not _is_plain_text_source(path)]
+        task_snapshot = _tasks.get(task_id, {})
+        existing_file_states = {
+            str(item.get("path") or "").strip(): item
+            for item in task_snapshot.get("files") or []
+            if str(item.get("path") or "").strip()
+        }
 
-        for file_path in payload.file_paths:
+        for file_path, file_state in existing_file_states.items():
+            if file_state.get("stage") == "completed":
+                continue
+            json_path = str(file_state.get("json_path") or "").strip()
+            if json_path and Path(json_path).exists() and _json_has_text_items(json_path):
+                text_json_by_file[file_path] = json_path
+                _update_file(
+                    task_id,
+                    file_path,
+                    stage="text_ready",
+                    state="复用上次解析结果，准备抽取三元组",
+                    parse_progress=100,
+                    progress=max(45, float(file_state.get("progress", 0) or 0)),
+                    json_path=json_path,
+                )
+
+        pending_paths = [
+            path
+            for path in payload.file_paths
+            if existing_file_states.get(path, {}).get("stage") != "completed"
+        ]
+        mineru_files = [
+            path
+            for path in pending_paths
+            if not _is_plain_text_source(path) and path not in text_json_by_file
+        ]
+
+        for file_path in pending_paths:
             if not _is_plain_text_source(file_path):
+                continue
+            if file_path in text_json_by_file:
                 continue
             json_path = _vector_json_from_plain_text(file_path, task_id)
             if json_path:
@@ -643,6 +892,9 @@ def _run_build_task(task_id: str, payload: DatabaseBuildRequest) -> None:
             _set_task(task_id, message="文本文件已读取，准备向量化入库...")
 
         for index, file_path in enumerate(payload.file_paths):
+            existing_state = existing_file_states.get(file_path, {})
+            if existing_state.get("stage") == "completed":
+                continue
             if _is_plain_text_source(file_path) and file_path not in text_json_by_file:
                 continue
             if file_path in errors_by_file:
@@ -661,17 +913,19 @@ def _run_build_task(task_id: str, payload: DatabaseBuildRequest) -> None:
             if not json_path:
                 _update_file(task_id, file_path, stage="failed", state="未找到解析 JSON", progress=45)
                 continue
+            current_stage = str(existing_state.get("stage") or "")
             _update_file(
                 task_id,
                 file_path,
                 stage="vectorizing",
-                state="开始抽取三元组和向量化",
+                state="继续抽取三元组和向量化" if current_stage == "text_ready" else "开始抽取三元组和向量化",
                 json_path=json_path,
                 progress=45,
             )
             vector_request = VectorizationRequest(
                 user_id=payload.user_id,
                 kb_id=payload.kb_id,
+                milvus_db=payload.milvus_db,
                 docment_id=_safe_docment_id(payload.kb_id, file_path, index),
                 json_path=json_path,
                 max_concurrency=payload.vector_concurrency,
@@ -703,7 +957,7 @@ def _run_build_task(task_id: str, payload: DatabaseBuildRequest) -> None:
             task_id,
             status=status,
             stage=status,
-            message="构建完成，数据已写入 Milvus。" if status == "completed" else "构建结束，但存在失败文档。",
+            message="构建完成，数据已写入向量数据库。" if status == "completed" else "构建结束，但存在失败文档。",
             completed=completed,
             failed=failed,
         )
@@ -714,41 +968,43 @@ def _run_build_task(task_id: str, payload: DatabaseBuildRequest) -> None:
 @router.post("/submit")
 def submit_database_build(payload: DatabaseBuildRequest) -> dict[str, Any]:
     task_id = uuid.uuid4().hex
-    now = _now()
-    task = {
-        "task_id": task_id,
-        "status": "queued",
-        "stage": "queued",
-        "message": "任务已入队",
-        "progress_percent": 0,
-        "kb_id": payload.kb_id,
-        "user_id": payload.user_id,
-        "milvus_db": payload.milvus_db,
-        "parse_task_id": None,
-        "created_at": now,
-        "updated_at": now,
-        "completed": 0,
-        "failed": 0,
-        "files": [
-            {
-                "path": path,
-                "name": Path(path).name,
-                "stage": "queued",
-                "state": "等待中",
-                "progress": 0,
-                "parse_progress": 0,
-                "vector_progress": 0,
-            }
-            for path in payload.file_paths
-        ],
-    }
+    task = _create_task_record(task_id, payload)
     with _tasks_lock:
         _tasks[task_id] = task
+        _sync_task_files_to_library(task)
         _save_tasks()
+        _save_library_files()
 
     runner = threading.Thread(target=_run_build_task, args=(task_id, payload), daemon=True)
     runner.start()
     return {"task_id": task_id, "status": task["status"], "progress_percent": 0}
+
+
+@router.post("/resume")
+def resume_database_build(payload: DatabaseBuildResumeRequest) -> dict[str, Any]:
+    source_task = _tasks.get(payload.source_task_id)
+    if source_task is None:
+        raise HTTPException(status_code=404, detail=f"源任务不存在: {payload.source_task_id}")
+    if source_task.get("status") not in FINISHED_BUILD_STATUSES:
+        raise HTTPException(status_code=409, detail="源任务仍在执行中，暂时不能续跑")
+
+    resume_build_request = _build_task_payload_from_resume(source_task, payload)
+    task_id = uuid.uuid4().hex
+    task = _create_task_record(
+        task_id,
+        resume_build_request,
+        source_task=source_task,
+        reuse_existing_json=payload.reuse_existing_json,
+    )
+    with _tasks_lock:
+        _tasks[task_id] = task
+        _sync_task_files_to_library(task)
+        _save_tasks()
+        _save_library_files()
+
+    runner = threading.Thread(target=_run_build_task, args=(task_id, resume_build_request), daemon=True)
+    runner.start()
+    return {"task_id": task_id, "status": task["status"], "progress_percent": task["progress_percent"]}
 
 
 @router.get("/progress/{task_id}")
@@ -760,10 +1016,18 @@ def get_database_build_progress(task_id: str) -> dict[str, Any]:
 
 
 @router.get("/latest")
-def get_latest_database_build(kb_id: str | None = None) -> dict[str, Any]:
+def get_latest_database_build(
+    kb_id: str | None = None,
+    user_id: str | None = None,
+    milvus_db: str | None = None,
+) -> dict[str, Any]:
     candidates = list(_tasks.values())
     if kb_id:
         candidates = [task for task in candidates if task.get("kb_id") == kb_id]
+    if user_id:
+        candidates = [task for task in candidates if task.get("user_id") == user_id]
+    if milvus_db:
+        candidates = [task for task in candidates if task.get("milvus_db") == milvus_db]
     if not candidates:
         raise HTTPException(status_code=404, detail="暂无构建任务")
     task = max(candidates, key=lambda item: float(item.get("updated_at", 0)))
@@ -837,6 +1101,7 @@ def list_library_catalog(
     for kb_id in sorted(candidate_kb_ids):
         tasks = grouped.get(kb_id, [])
         latest_task = tasks[0] if tasks else None
+        summary = _library_summary_from_registry(kb_id=kb_id, user_id=user_id, milvus_db=milvus_db)
         library = {
             "kb_id": kb_id,
             "user_id": user_id,
@@ -844,18 +1109,18 @@ def list_library_catalog(
             "latest_task_id": latest_task.get("task_id") if latest_task else None,
             "latest_status": latest_task.get("status") if latest_task else "discovered",
             "latest_stage": latest_task.get("stage") if latest_task else "milvus_only",
-            "latest_message": latest_task.get("message") if latest_task else "从 Milvus 现有数据发现",
+            "latest_message": latest_task.get("message") if latest_task else "从向量数据库现有数据发现",
             "updated_at": latest_task.get("updated_at") if latest_task else 0,
             "task_count": len(tasks),
-            "file_count": 0,
-            "completed": 0,
-            "failed": 0,
-            "chunk_count": 0,
-            "entity_count": 0,
-            "relation_count": 0,
-            "failed_embeddings": 0,
-            "completion_ratio": 0.0,
-            "source_documents": [],
+            "file_count": int(summary.get("file_count", 0) or 0),
+            "completed": int(summary.get("completed", 0) or 0),
+            "failed": int(summary.get("failed", 0) or 0),
+            "chunk_count": int(summary.get("chunk_count", 0) or 0),
+            "entity_count": int(summary.get("entity_count", 0) or 0),
+            "relation_count": int(summary.get("relation_count", 0) or 0),
+            "failed_embeddings": int(summary.get("failed_embeddings", 0) or 0),
+            "completion_ratio": float(summary.get("completion_ratio", 0.0) or 0.0),
+            "source_documents": list(summary.get("source_documents") or []),
             "passage_count": 0,
         }
         if include_live_preview:
@@ -890,20 +1155,11 @@ def list_library_catalog(
 
 
 _load_tasks()
-
-
-def _connect_legacy_milvus(request: Request, milvus_db: str | None = None) -> None:
-    settings = request.app.state.settings
-    parsed = urlparse(settings.milvus_uri)
-    host = parsed.hostname or settings.milvus_uri.replace("http://", "").replace("https://", "")
-    port = str(parsed.port or 19530)
-    connections.connect(
-        alias="default",
-        host=host,
-        port=port,
-        db_name=milvus_db or settings.milvus_db,
-        token=settings.milvus_token,
-    )
+_load_library_files()
+_reconcile_interrupted_tasks()
+if not _library_files:
+    _rebuild_library_files_from_tasks()
+    _save_library_files()
 
 
 @router.get("/library/{kb_id}")
@@ -915,47 +1171,15 @@ def inspect_built_library(
     limit: int = 5,
 ) -> dict[str, Any]:
     try:
-        selected_db = milvus_db or request.app.state.settings.milvus_db
-        _connect_legacy_milvus(request, selected_db)
-        collections = {
-            "entities": ("Entities", ["id", "name", "user_id", "kb_id"]),
-            "relations": (
-            "Relations",
-            ["id", "subject_id", "object_id", "relation", "describe", "passage", "user_id", "kb_id"],
-        ),
-            "passages": ("Passage", ["id", "docment_id", "passage", "user_id", "kb_id"]),
-        }
-        data: dict[str, Any] = {
-            "kb_id": kb_id,
-            "user_id": user_id,
-            "milvus_db": selected_db,
-            "collections": {},
-        }
-        expr = f'user_id == "{user_id}" and kb_id == "{kb_id}"'
-        for key, (collection_name, output_fields) in collections.items():
-            collection = Collection(collection_name)
-            collection.load()
-            matched_count: int | None = None
-            try:
-                count_rows = collection.query(expr=expr, output_fields=["count(*)"])
-                if count_rows:
-                    matched_count = int(count_rows[0].get("count(*)", 0))
-            except Exception:
-                matched_count = None
-            rows = collection.query(
-                expr=expr,
-                output_fields=output_fields,
-                limit=max(1, min(limit, 100)),
-            )
-            data["collections"][key] = {
-                "collection": collection_name,
-                "matched_count": matched_count,
-                "sample_count": len(rows),
-                "samples": rows,
-            }
-        return data
+        selected_db = milvus_db or request.app.state.settings.vector_db_database
+        return _get_vector_store(request).inspect_library(
+            kb_id=kb_id,
+            user_id=user_id,
+            db_name=selected_db,
+            limit=limit,
+        )
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail=f"读取 Milvus 失败: {exc}") from exc
+        raise HTTPException(status_code=502, detail=f"读取向量数据库失败: {exc}") from exc
 
 
 @router.get("/library/{kb_id}/overview")
@@ -987,6 +1211,7 @@ def get_library_overview(
         if task.get("kb_id") == kb_id and task.get("user_id") == user_id and task.get("milvus_db") == milvus_db
     ]
     if not matching_tasks:
+        summary = _library_summary_from_registry(kb_id=kb_id, user_id=user_id, milvus_db=milvus_db)
         return {
             "kb_id": kb_id,
             "user_id": user_id,
@@ -995,45 +1220,61 @@ def get_library_overview(
                 "task_id": None,
                 "status": "discovered",
                 "stage": "milvus_only",
-                "message": "从 Milvus 现有数据发现",
+                "message": "从向量数据库现有数据发现",
                 "kb_id": kb_id,
                 "milvus_db": milvus_db,
                 "progress_percent": 100,
                 "files": [],
             },
             "summary": {
-                "file_count": 0,
-                "completed": 0,
-                "failed": 0,
-                "chunk_count": 0,
+                **summary,
                 "entity_count": int(live_preview["counts"]["entities"]),
                 "relation_count": int(live_preview["counts"]["relations"]),
-                "failed_embeddings": 0,
-                "completion_ratio": 1.0,
-                "source_documents": [],
             },
             "milvus_preview": live_preview,
             "milvus_error": None,
         }
 
     latest_task = matching_tasks[0]
+    summary = _aggregate_library_summary(matching_tasks)
     overview = {
         "kb_id": kb_id,
         "user_id": user_id,
         "milvus_db": milvus_db,
         "latest_task": _public_task(latest_task),
         "summary": {
-            "file_count": 0,
-            "completed": 0,
-            "failed": 0,
-            "chunk_count": 0,
+            **summary,
             "entity_count": int(live_preview["counts"]["entities"]),
             "relation_count": int(live_preview["counts"]["relations"]),
-            "failed_embeddings": 0,
-            "completion_ratio": 1.0,
-            "source_documents": [],
         },
         "milvus_preview": live_preview,
         "milvus_error": None,
     }
     return overview
+
+
+@router.get("/library/{kb_id}/history")
+def get_library_history(
+    kb_id: str,
+    user_id: str = "admin_user",
+    milvus_db: str = "crx",
+    limit: int = 20,
+) -> dict[str, Any]:
+    matching_tasks = [
+        task
+        for task in sorted(_tasks.values(), key=lambda item: float(item.get("updated_at", 0)), reverse=True)
+        if task.get("kb_id") == kb_id and task.get("user_id") == user_id and task.get("milvus_db") == milvus_db
+    ]
+    items = [
+        {
+            **_public_task(task),
+            "summary": _task_summary(task),
+        }
+        for task in matching_tasks[: max(1, min(limit, 100))]
+    ]
+    return {
+        "kb_id": kb_id,
+        "user_id": user_id,
+        "milvus_db": milvus_db,
+        "tasks": items,
+    }

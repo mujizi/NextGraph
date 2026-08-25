@@ -91,3 +91,30 @@ class RagAnswerResponse(BaseModel):
     results: list[RelationHit] = Field(default_factory=list)
     grounded_passages: list[GroundedPassage] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ExternalQueryRequest(BaseModel):
+    question: str = Field(..., min_length=1, description="外部调用方传入的问题文本。")
+    user_id: str = Field(..., min_length=1, description="用户 ID，用于权限/数据隔离。")
+    kb_id: str = Field(..., min_length=1, description="知识库 ID，用于检索范围过滤。")
+    mode: SearchMode = Field(default=SearchMode.hybrid, description="检索模式。")
+    top_k: int = Field(default=10, ge=1, le=100, description="最终返回结果数量。")
+    entity_top_k: int = Field(default=8, ge=1, le=100, description="实体向量召回数量。")
+    relation_top_k: int = Field(default=8, ge=1, le=100, description="关系向量召回数量。")
+    expansion_degree: int = Field(default=2, ge=0, le=4, description="子图扩展 hop 数。")
+    include_answer: bool = Field(default=False, description="是否同时返回模型生成答案。")
+    answer_top_k: int = Field(default=6, ge=1, le=20, description="生成答案时使用的关系数量。")
+    passage_top_k: int = Field(default=6, ge=1, le=20, description="生成答案时使用的证据段落数量。")
+
+
+class ExternalQueryResponse(BaseModel):
+    question: str
+    user_id: str
+    kb_id: str
+    mode: SearchMode
+    answer: str | None = None
+    retrieval_query: str | None = None
+    results: list[RelationHit] = Field(default_factory=list)
+    grounded_passages: list[GroundedPassage] = Field(default_factory=list)
+    entity_hits: list[EntityHit] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)

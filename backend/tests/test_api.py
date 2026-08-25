@@ -70,3 +70,37 @@ def test_answer_endpoint_uses_injected_service():
     assert data["retrieval_query"] == "stub retrieval"
     assert data["answer"] == "stub answer"
     assert data["metadata"]["stub"] is True
+
+
+def test_external_query_endpoint_returns_direct_data():
+    app = create_app(settings=Settings(embedder_backend="auto"), search_service=StubService())
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/search/external/query",
+        json={"question": "test", "user_id": "u1", "kb_id": "kb1"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["question"] == "test"
+    assert data["mode"] == SearchMode.hybrid.value
+    assert data["answer"] is None
+    assert data["metadata"]["stub"] is True
+
+
+def test_external_query_endpoint_can_return_answer():
+    app = create_app(settings=Settings(embedder_backend="auto"), search_service=StubService())
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/search/external/query",
+        json={"question": "test", "user_id": "u1", "kb_id": "kb1", "include_answer": True},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["question"] == "test"
+    assert data["answer"] == "stub answer"
+    assert data["retrieval_query"] == "stub retrieval"
+    assert data["metadata"]["stub"] is True

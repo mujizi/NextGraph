@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -21,6 +23,8 @@ from backend.app.search.query_fact_rewriter import IdentityQueryFactRewriter, Qu
 from backend.app.search.query_entity_extractor import AzureLLMQueryEntityExtractor, QueryEntityExtractor
 from backend.app.vector_database.search.embedder import QueryEmbedder
 from backend.app.vector_database.search.repository import MilvusGraphRepository
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -61,11 +65,40 @@ class SearchService:
     def _filter_rows_by_score(rows: list[dict[str, Any]], threshold: float) -> list[dict[str, Any]]:
         return [row for row in rows if float(row.get("score", 0.0)) >= threshold]
 
+    def _safe_get_entities_by_ids(self, entity_ids: list[str], *, user_id: str, kb_id: str, context: str) -> list[dict[str, Any]]:
+        if not entity_ids:
+            return []
+        try:
+            return self.repository.get_entities_by_ids(entity_ids, user_id=user_id, kb_id=kb_id)
+        except Exception as exc:
+            logger.warning("get_entities_by_ids failed during %s: %s", context, exc)
+            return []
+
+    def _safe_get_relations_by_ids(self, relation_ids: list[str], *, user_id: str, kb_id: str, context: str) -> list[dict[str, Any]]:
+        if not relation_ids:
+            return []
+        try:
+            return self.repository.get_relations_by_ids(relation_ids, user_id=user_id, kb_id=kb_id)
+        except Exception as exc:
+            logger.warning("get_relations_by_ids failed during %s: %s", context, exc)
+            return []
+
+    def _safe_get_passages_by_ids(self, passage_ids: list[str], *, user_id: str, kb_id: str, context: str) -> list[dict[str, Any]]:
+        if not passage_ids:
+            return []
+        try:
+            return self.repository.get_passages_by_ids(passage_ids, user_id=user_id, kb_id=kb_id)
+        except Exception as exc:
+            logger.warning("get_passages_by_ids failed during %s: %s", context, exc)
+            return []
+
     def search(self, request: SearchRequest) -> SearchResponse:
         started = time.perf_counter()
         print(f"DEBUG: Search request for query: '{request.query}' in kb: '{request.kb_id}'")
         retrieval_query = self._rewrite_query_for_retrieval(request)
         query_vector = self.embedder.embed(retrieval_query)
+        shared_query_entities: list[str] | None = None
+        shared_seed_entity_rows: list[dict[str, Any]] | None = None
 
         semantic_route: RouteResult | None = None
         triple_route: RouteResult | None = None
@@ -81,8 +114,22 @@ class SearchService:
             entity_hits = triple_route.entity_hits
             route_metadata = triple_route.metadata
         else:
-            semantic_route = self._semantic_route(query_vector=query_vector, request=request)
-            triple_route = self._triple_route(query_vector=query_vector, request=request)
+            shared_query_entities, shared_seed_entity_rows = self._retrieve_seed_entities(
+                request=request,
+                fallback_query_vector=query_vector,
+            )
+            semantic_route = self._semantic_route(
+                query_vector=query_vector,
+                request=request,
+                precomputed_query_entities=shared_query_entities,
+                precomputed_entity_rows=shared_seed_entity_rows,
+            )
+            triple_route = self._triple_route(
+                query_vector=query_vector,
+                request=request,
+                precomputed_query_entities=shared_query_entities,
+                precomputed_seed_entity_rows=shared_seed_entity_rows,
+            )
             results = self._merge_hybrid(
                 semantic_candidates=semantic_route.relation_candidates,
                 triple_candidates=triple_route.relation_candidates,
@@ -120,6 +167,36 @@ class SearchService:
         )
 
     def answer(self, request: RagAnswerRequest) -> RagAnswerResponse:
+        prepared = self.prepare_answer_materials(request)
+        if prepared["has_answer_context"]:
+            answer_text = self._generate_answer(
+                query=request.query,
+                retrieval_query=prepared["retrieval_query"],
+                context=prepared["context"],
+            )
+        else:
+            answer_text = "当前可参考的信息相关度不足，无法形成可靠回答。"
+        return RagAnswerResponse(
+            mode=prepared["retrieval_response"].mode,
+            query=request.query,
+            retrieval_query=prepared["retrieval_query"],
+            user_id=request.user_id,
+            kb_id=request.kb_id,
+            answer=answer_text,
+            results=prepared["selected_results"],
+            grounded_passages=prepared["selected_passages"],
+            metadata={
+                **prepared["retrieval_response"].metadata,
+                "answer_top_k": request.answer_top_k,
+                "passage_top_k": request.passage_top_k,
+                "answer_context_score_threshold": self.settings.answer_context_score_threshold,
+                "answer_context_filtered_result_count": prepared["filtered_result_count"],
+                "answer_context_filtered_passage_count": prepared["filtered_passage_count"],
+                "context_preview": prepared["context"][:2000],
+            },
+        )
+
+    def prepare_answer_materials(self, request: RagAnswerRequest) -> dict[str, Any]:
         retrieval_response = self.search(
             SearchRequest(
                 query=request.query,
@@ -132,8 +209,21 @@ class SearchService:
                 expansion_degree=request.expansion_degree,
             )
         )
-        selected_results = retrieval_response.results[: request.answer_top_k]
-        selected_passages = retrieval_response.grounded_passages[: request.passage_top_k]
+        answer_threshold = self.settings.answer_context_score_threshold
+        answer_ready_results = [item for item in retrieval_response.results if item.score >= answer_threshold]
+        selected_results = answer_ready_results[: request.answer_top_k]
+        selected_result_ids = {item.id for item in selected_results}
+        answer_ready_passages = [
+            item
+            for item in retrieval_response.grounded_passages
+            if item.score >= answer_threshold
+            and (
+                not item.matched_relation_ids
+                or not selected_result_ids
+                or bool(set(item.matched_relation_ids) & selected_result_ids)
+            )
+        ]
+        selected_passages = answer_ready_passages[: request.passage_top_k]
         retrieval_query = str(retrieval_response.metadata.get("retrieval_query") or request.query)
         context = self._build_rag_context(
             query=request.query,
@@ -141,23 +231,57 @@ class SearchService:
             relation_hits=selected_results,
             grounded_passages=selected_passages,
         )
-        answer_text = self._generate_answer(query=request.query, retrieval_query=retrieval_query, context=context)
-        return RagAnswerResponse(
-            mode=retrieval_response.mode,
-            query=request.query,
-            retrieval_query=retrieval_query,
-            user_id=request.user_id,
-            kb_id=request.kb_id,
-            answer=answer_text,
-            results=selected_results,
-            grounded_passages=selected_passages,
-            metadata={
-                **retrieval_response.metadata,
-                "answer_top_k": request.answer_top_k,
-                "passage_top_k": request.passage_top_k,
-                "context_preview": context[:2000],
-            },
-        )
+        return {
+            "retrieval_response": retrieval_response,
+            "selected_results": selected_results,
+            "selected_passages": selected_passages,
+            "retrieval_query": retrieval_query,
+            "context": context,
+            "has_answer_context": bool(selected_results or selected_passages),
+            "filtered_result_count": len(retrieval_response.results) - len(answer_ready_results),
+            "filtered_passage_count": len(retrieval_response.grounded_passages) - len(answer_ready_passages),
+        }
+
+    def stream_answer(self, request: RagAnswerRequest) -> tuple[dict[str, Any], Iterator[str]]:
+        prepared = self.prepare_answer_materials(request)
+        if not prepared["has_answer_context"]:
+            def insufficient_context_stream() -> Iterator[str]:
+                yield "当前可参考的信息相关度不足，无法形成可靠回答。"
+
+            return prepared, insufficient_context_stream()
+
+        if not self.answer_generator or not hasattr(self.answer_generator, "stream_generate"):
+            fallback_text = self._generate_answer(
+                query=request.query,
+                retrieval_query=prepared["retrieval_query"],
+                context=prepared["context"],
+            )
+
+            def fallback_stream() -> Iterator[str]:
+                if fallback_text:
+                    yield fallback_text
+
+            return prepared, fallback_stream()
+
+        try:
+            return prepared, self.answer_generator.stream_generate(
+                query=request.query,
+                retrieval_query=prepared["retrieval_query"],
+                context=prepared["context"],
+            )
+        except Exception as exc:
+            logger.warning("stream answer generation failed, fallback to non-streaming answer: %s", exc)
+            fallback_text = self._generate_answer(
+                query=request.query,
+                retrieval_query=prepared["retrieval_query"],
+                context=prepared["context"],
+            )
+
+            def fallback_stream() -> Iterator[str]:
+                if fallback_text:
+                    yield fallback_text
+
+            return prepared, fallback_stream()
 
     def search_trace(self, request: SearchRequest) -> dict[str, Any]:
         response = self.search(request)
@@ -208,10 +332,11 @@ class SearchService:
         }
 
     def entity_neighborhood(self, request: EntityNeighborhoodRequest) -> dict[str, Any]:
-        seed_rows = self.repository.get_entities_by_ids(
+        seed_rows = self._safe_get_entities_by_ids(
             request.seed_entity_ids,
             user_id=request.user_id,
             kb_id=request.kb_id,
+            context="entity_neighborhood.seed_entities",
         )
         if not seed_rows:
             return {"graph": {"nodes": [], "links": []}, "center_entity_id": request.center_entity_id}
@@ -245,10 +370,11 @@ class SearchService:
 
             if not relation_ids:
                 break
-            relation_rows = self.repository.get_relations_by_ids(
+            relation_rows = self._safe_get_relations_by_ids(
                 sorted(relation_ids),
                 user_id=request.user_id,
                 kb_id=request.kb_id,
+                context="entity_neighborhood.hop_relations",
             )
 
             next_frontier: set[str] = set()
@@ -264,13 +390,14 @@ class SearchService:
                         next_frontier.add(entity_id)
 
             if new_entity_ids:
-                fetched_entities = self.repository.get_entities_by_ids(
+                fetched_entities = self._safe_get_entities_by_ids(
                     sorted(new_entity_ids),
                     user_id=request.user_id,
                     kb_id=request.kb_id,
+                    context="entity_neighborhood.hop_entities",
                 )
                 entity_lookup.update({row["id"]: row for row in fetched_entities})
-                visited_entity_ids.update(new_entity_ids)
+                visited_entity_ids.update(row["id"] for row in fetched_entities if row.get("id"))
 
             frontier_entity_ids = next_frontier
             if not frontier_entity_ids:
@@ -283,10 +410,11 @@ class SearchService:
                 continue
             closure_relation_ids.update(entity.get("relation_ids") or [])
 
-        closure_relation_rows = self.repository.get_relations_by_ids(
+        closure_relation_rows = self._safe_get_relations_by_ids(
             sorted(closure_relation_ids),
             user_id=request.user_id,
             kb_id=request.kb_id,
+            context="entity_neighborhood.closure_relations",
         )
         visible_relation_rows = [
             row
@@ -346,8 +474,18 @@ class SearchService:
         print(f"DEBUG: Aggregated {len(aggregated)} rows, {len(filtered)} after threshold.")
         return query_entities, filtered
 
-    def _semantic_route(self, *, query_vector: list[float], request: SearchRequest) -> RouteResult:
-        query_entities, entity_rows = self._retrieve_seed_entities(request=request, fallback_query_vector=query_vector)
+    def _semantic_route(
+        self,
+        *,
+        query_vector: list[float],
+        request: SearchRequest,
+        precomputed_query_entities: list[str] | None = None,
+        precomputed_entity_rows: list[dict[str, Any]] | None = None,
+    ) -> RouteResult:
+        if precomputed_query_entities is not None and precomputed_entity_rows is not None:
+            query_entities, entity_rows = precomputed_query_entities, precomputed_entity_rows
+        else:
+            query_entities, entity_rows = self._retrieve_seed_entities(request=request, fallback_query_vector=query_vector)
         relation_rows = self._filter_rows_by_score(
             self.repository.search_relations(query_vector, user_id=request.user_id, kb_id=request.kb_id, limit=request.relation_top_k),
             self.settings.relation_score_threshold,
@@ -356,8 +494,18 @@ class SearchService:
         relation_candidates = self._build_relation_hits(relation_rows, base_breakdown_key="semantic_score", source_mode="semantic")
         return RouteResult(entity_hits=entity_hits, relation_candidates=relation_candidates, metadata={"query_entities": query_entities, "seed_entity_ids": [row["id"] for row in entity_rows], "seed_relation_ids": [row["id"] for row in relation_rows]})
 
-    def _triple_route(self, *, query_vector: list[float], request: SearchRequest) -> RouteResult:
-        query_entities, seed_entity_rows = self._retrieve_seed_entities(request=request, fallback_query_vector=query_vector)
+    def _triple_route(
+        self,
+        *,
+        query_vector: list[float],
+        request: SearchRequest,
+        precomputed_query_entities: list[str] | None = None,
+        precomputed_seed_entity_rows: list[dict[str, Any]] | None = None,
+    ) -> RouteResult:
+        if precomputed_query_entities is not None and precomputed_seed_entity_rows is not None:
+            query_entities, seed_entity_rows = precomputed_query_entities, precomputed_seed_entity_rows
+        else:
+            query_entities, seed_entity_rows = self._retrieve_seed_entities(request=request, fallback_query_vector=query_vector)
         seed_relation_rows = self._filter_rows_by_score(
             self.repository.search_relations(query_vector, user_id=request.user_id, kb_id=request.kb_id, limit=request.relation_top_k),
             self.settings.relation_score_threshold,
@@ -383,12 +531,26 @@ class SearchService:
                 },
             )
 
-        rerank_limit = min(len(expansion.relation_ids), max(request.top_k, request.relation_top_k, self.settings.default_relation_top_k))
-        reranked_rows = self._filter_rows_by_score(
-            self.repository.search_relations(query_vector, user_id=request.user_id, kb_id=request.kb_id, limit=rerank_limit, relation_ids=expansion.relation_ids),
-            self.settings.relation_score_threshold,
+        seed_relation_scores = {
+            row["id"]: float(row.get("score", 0.0))
+            for row in seed_relation_rows
+            if row.get("id")
+        }
+        lightweight_rows: list[dict[str, Any]] = []
+        for row in expansion.relation_rows:
+            relation_id = str(row.get("id") or "")
+            enriched_row = dict(row)
+            enriched_row["score"] = seed_relation_scores.get(
+                relation_id,
+                float(row.get("score", 0.0)) if row.get("score") is not None else self.settings.relation_score_threshold,
+            )
+            lightweight_rows.append(enriched_row)
+        relation_candidates = self._build_relation_hits(
+            lightweight_rows,
+            base_breakdown_key="triple_score",
+            source_mode="triple",
+            matched_entity_ids=expansion.matched_entity_ids,
         )
-        relation_candidates = self._build_relation_hits(reranked_rows, base_breakdown_key="triple_score", source_mode="triple", matched_entity_ids=expansion.matched_entity_ids)
         return RouteResult(
             entity_hits=entity_hits,
             relation_candidates=relation_candidates,
@@ -423,7 +585,12 @@ class SearchService:
 
         missing_init_relations = sorted(init_relation_ids - set(relation_lookup))
         if missing_init_relations:
-            fetched_rows = self.repository.get_relations_by_ids(missing_init_relations, user_id=request.user_id, kb_id=request.kb_id)
+            fetched_rows = self._safe_get_relations_by_ids(
+                missing_init_relations,
+                user_id=request.user_id,
+                kb_id=request.kb_id,
+                context="triple_route.init_merge.relations",
+            )
             relation_lookup.update({row["id"]: row for row in fetched_rows})
         relation_ids = set(relation_lookup)
         history.append({"step": 0, "operation": "init_merge", "seed_entity_count": len(seed_entity_rows), "seed_relation_count": len(seed_relation_rows), "total_relations": len(relation_ids)})
@@ -440,9 +607,14 @@ class SearchService:
                         new_entity_ids.add(entity_id)
 
             if new_entity_ids:
-                fetched_entities = self.repository.get_entities_by_ids(sorted(new_entity_ids), user_id=request.user_id, kb_id=request.kb_id)
+                fetched_entities = self._safe_get_entities_by_ids(
+                    sorted(new_entity_ids),
+                    user_id=request.user_id,
+                    kb_id=request.kb_id,
+                    context="triple_route.expand_subgraph.entities",
+                )
                 entity_lookup.update({row["id"]: row for row in fetched_entities})
-                entity_ids.update(new_entity_ids)
+                entity_ids.update(row["id"] for row in fetched_entities if row.get("id"))
 
             new_relation_ids: set[str] = set()
             for entity_id in new_entity_ids:
@@ -455,9 +627,14 @@ class SearchService:
                     matched_entity_ids.setdefault(relation_id, set()).add(entity_id)
 
             if new_relation_ids:
-                fetched_relations = self.repository.get_relations_by_ids(sorted(new_relation_ids), user_id=request.user_id, kb_id=request.kb_id)
+                fetched_relations = self._safe_get_relations_by_ids(
+                    sorted(new_relation_ids),
+                    user_id=request.user_id,
+                    kb_id=request.kb_id,
+                    context="triple_route.expand_subgraph.relations",
+                )
                 relation_lookup.update({row["id"]: row for row in fetched_relations})
-                relation_ids.update(new_relation_ids)
+                relation_ids.update(row["id"] for row in fetched_relations if row.get("id"))
 
             history.append({"step": hop + 1, "operation": f"expand_degree_{hop + 1}", "new_entity_ids": sorted(new_entity_ids), "new_relation_ids": sorted(new_relation_ids), "total_entities": len(entity_ids), "total_relations": len(relation_ids)})
             if not new_entity_ids and not new_relation_ids:
@@ -474,7 +651,12 @@ class SearchService:
         entity_ids = sorted({entity_id for row in relation_rows for entity_id in [row.get("subject_id"), row.get("object_id")] if entity_id})
         scoped_user_id = relation_rows[0].get("user_id", "")
         scoped_kb_id = relation_rows[0].get("kb_id", "")
-        entity_rows = self.repository.get_entities_by_ids(entity_ids, user_id=scoped_user_id, kb_id=scoped_kb_id)
+        entity_rows = self._safe_get_entities_by_ids(
+            entity_ids,
+            user_id=scoped_user_id,
+            kb_id=scoped_kb_id,
+            context="triple_route.build_relation_hits",
+        )
         entity_lookup = {row["id"]: row for row in entity_rows}
 
         candidates: dict[str, RelationHit] = {}
@@ -510,8 +692,34 @@ class SearchService:
                 passage_scores[passage_id] = max(passage_scores.get(passage_id, float("-inf")), hit.score)
                 passage_to_relations.setdefault(passage_id, set()).add(hit.id)
 
-        passage_rows = self.repository.get_passages_by_ids(sorted(passage_scores), user_id=request.user_id, kb_id=request.kb_id)
+        passage_rows = self._safe_get_passages_by_ids(
+            sorted(passage_scores),
+            user_id=request.user_id,
+            kb_id=request.kb_id,
+            context="search.ground_passages",
+        )
         grounded = [GroundedPassage(id=row["id"], passage=row.get("passage", ""), docment_id=row.get("docment_id"), score=float(passage_scores.get(row["id"], 0.0)), matched_relation_ids=sorted(passage_to_relations.get(row["id"], set()))) for row in passage_rows]
+        if not grounded:
+            fallback_grounded: list[GroundedPassage] = []
+            seen_fallback_ids: set[str] = set()
+            for hit in relation_hits:
+                passage = (hit.passage or "").strip()
+                if not passage:
+                    continue
+                fallback_id = hit.passage_ids[0] if hit.passage_ids else f"relation:{hit.id}"
+                if fallback_id in seen_fallback_ids:
+                    continue
+                seen_fallback_ids.add(fallback_id)
+                fallback_grounded.append(
+                    GroundedPassage(
+                        id=fallback_id,
+                        passage=passage,
+                        docment_id=hit.docment_id,
+                        score=hit.score,
+                        matched_relation_ids=[hit.id],
+                    )
+                )
+            grounded = fallback_grounded
         grounded.sort(key=lambda item: item.score, reverse=True)
         return grounded[: request.top_k]
 
@@ -556,6 +764,7 @@ class SearchService:
                     "source": subject_id,
                     "target": object_id,
                     "label": row.get("relation", "related_to"),
+                    "describe": row.get("describe", "") or row.get("relation", "related_to"),
                     "matched_entity_ids": sorted(matched_entity_ids.get(row.get("id", ""), set())),
                 }
             )
@@ -573,6 +782,7 @@ class SearchService:
                     "source": hit.subject_id,
                     "target": hit.object_id,
                     "label": hit.relation,
+                    "describe": hit.describe,
                     "matched_entity_ids": hit.matched_entity_ids,
                 }
             )
@@ -679,7 +889,7 @@ class SearchService:
     def _generate_answer(self, *, query: str, retrieval_query: str, context: str) -> str:
         if not self.answer_generator:
             if "None" in context and "Grounded Evidence Passages:\nNone" in context:
-                return "知识库中没有检索到足够证据，暂时无法回答这个问题。"
+                return "目前没有足够信息形成可靠回答。"
             return context
         try:
             answer = self.answer_generator.generate(
@@ -689,5 +899,5 @@ class SearchService:
             )
         except Exception as exc:
             print(f"DEBUG: Answer generation failed, fallback to context summary. Error: {exc}")
-            return "知识库已检索到相关材料，但答案生成失败。请先查看返回的关系摘要和证据原文。"
-        return answer or "知识库已检索到相关材料，但未生成有效答案。"
+            return "暂时无法生成完整回答，请稍后重试。"
+        return answer or "暂时无法生成有效回答。"

@@ -17,7 +17,7 @@ def create_app(
     app = FastAPI(
         title="NextGraph Backend",
         version="0.1.0",
-        description="Document parsing and Milvus-backed graph retrieval for NextGraph.",
+        description="Document parsing and provider-backed graph retrieval for NextGraph.",
     )
 
     app.add_middleware(
@@ -34,7 +34,11 @@ def create_app(
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        return {"status": "ok"}
+        return {
+            "status": "ok",
+            "vector_store_provider": runtime_settings.vector_store_provider,
+            "vector_db_database": runtime_settings.vector_db_database,
+        }
 
     app.include_router(parse_router)
     app.include_router(files_router)

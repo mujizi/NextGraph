@@ -13,8 +13,9 @@ from openai import AsyncAzureOpenAI
 import hashlib
 from dotenv import load_dotenv
 # 导入单步抽取函数
+from backend.app.core.config import get_settings
+from backend.app.vector_database.providers.factory import create_vector_store
 from backend.app.triple_extraction.functions import _extract_single_chunk
-from backend.app.db.vector_client import milvus_client
 
 load_dotenv()
 
@@ -37,6 +38,7 @@ azure_aclient = AsyncAzureOpenAI(
 class VectorizationRequest(BaseModel):
     user_id: str
     kb_id: str
+    milvus_db: str | None = None
     docment_id: str
     json_path: str
     max_concurrency: Optional[int] = Field(default=None, ge=1, le=128)
@@ -112,6 +114,35 @@ def _merge_relation_descriptions(existing: str, incoming: str, *, max_bytes: int
         if part and part not in merged_parts:
             merged_parts.append(part)
     return _truncate_utf8("；".join(merged_parts), max_bytes)
+
+
+def _append_relation_id(entity_state: dict[str, Any], relation_id: str) -> None:
+    relation_ids = entity_state.setdefault("relation_ids", [])
+    relation_ids_set = entity_state.setdefault("relation_ids_set", set())
+    if relation_id in relation_ids_set:
+        return
+    relation_ids.append(relation_id)
+    relation_ids_set.add(relation_id)
+
+
+def _finalize_relation_ids(
+    entity_state: dict[str, Any],
+    *,
+    max_relations: int,
+    entity_name: str,
+) -> tuple[list[str], bool]:
+    relation_ids = list(entity_state.get("relation_ids") or [])
+    truncated = False
+    if len(relation_ids) > max_relations:
+        relation_ids = relation_ids[-max_relations:]
+        truncated = True
+        logger.warning(
+            "实体 %s 的 relation_ids 超过上限，已截断为最近 %s 条（原始 %s 条）",
+            entity_name,
+            max_relations,
+            len(entity_state.get("relation_ids") or []),
+        )
+    return relation_ids, truncated
 
 def merge_json_items(items: List[Dict], max_chars: int, overlap_chars: int = 0) -> List[str]:
     """将碎片化的 JSON items 合并，并切分超长块以避免 embedding 上下文超限。"""
@@ -197,6 +228,9 @@ async def process_vectorization_task(task_id: str, request: VectorizationRequest
             update_task_status(task_id, "error", f"找不到文件: {request.json_path}")
             return
 
+        vector_store = create_vector_store(get_settings())
+        vector_store.use_database(request.milvus_db or get_settings().vector_db_database)
+
         extract_concurrency = request.max_concurrency or request.extract_concurrency
         embedding_concurrency = request.max_concurrency or request.embedding_concurrency
 
@@ -241,11 +275,13 @@ async def process_vectorization_task(task_id: str, request: VectorizationRequest
         passages_payload, entities_map = [], {}
         relations_map: Dict[str, Dict[str, Any]] = {}
 
-        # 定义字段长度上限 (与 Milvus Schema 保持一致，按 UTF-8 字节安全截断)
+        # 定义字段长度上限 (与向量库 schema 保持一致，按 UTF-8 字节安全截断)
         MAX_PASSAGE_LEN = 16000
         MAX_NAME_LEN = 500
         MAX_RELATION_LEN = 1000
         MAX_DESCRIBE_LEN = 4000
+        MAX_ENTITY_RELATION_IDS = max(1, get_settings().relation_number_threshold)
+        truncated_entity_relation_ids = 0
 
         # 首先收集所有本次提取到的实体名称，准备批量查询
         all_entity_names = set()
@@ -258,9 +294,9 @@ async def process_vectorization_task(task_id: str, request: VectorizationRequest
                 if object_name:
                     all_entity_names.add(object_name)
         
-        # 预先生成所有实体 ID 并查询 Milvus
+        # 预先生成所有实体 ID 并查询向量库
         entity_name_to_id = {name: generate_entity_id(request.kb_id, name) for name in all_entity_names}
-        existing_entities = milvus_client.get_entities_by_ids(request.kb_id, list(entity_name_to_id.values()))
+        existing_entities = vector_store.get_entity_map_by_ids(request.kb_id, list(entity_name_to_id.values()))
 
         for idx, item in enumerate(extracted_data):
             c_id = f"{request.docment_id}_c{str(idx+1).zfill(4)}"
@@ -293,7 +329,8 @@ async def process_vectorization_task(task_id: str, request: VectorizationRequest
                         entities_map[name] = {
                             "id": ent_id, 
                             "name": name, 
-                            "relation_ids": set(existing["relation_ids"]) if existing else set(), 
+                            "relation_ids": list(dict.fromkeys(existing.get("relation_ids") or [])) if existing else [],
+                            "relation_ids_set": set(existing.get("relation_ids") or []) if existing else set(),
                             "embedding": existing["embedding"] if existing else []
                         }
                 
@@ -323,13 +360,21 @@ async def process_vectorization_task(task_id: str, request: VectorizationRequest
                     # Keep the longest supporting passage as the representative text.
                     if len(chunk_text) > len(existing_relation.get("passage", "")):
                         existing_relation["passage"] = chunk_text
-                entities_map[subj]["relation_ids"].add(r_id)
-                entities_map[obj]["relation_ids"].add(r_id)
+                _append_relation_id(entities_map[subj], r_id)
+                _append_relation_id(entities_map[obj], r_id)
 
         relations_payload = list(relations_map.values())
         entities_payload = list(entities_map.values())
         for e in entities_payload:
-            e["relation_ids"] = list(e["relation_ids"])
+            relation_ids, was_truncated = _finalize_relation_ids(
+                e,
+                max_relations=MAX_ENTITY_RELATION_IDS,
+                entity_name=e.get("name") or e.get("id") or "<unknown>",
+            )
+            e["relation_ids"] = relation_ids
+            e.pop("relation_ids_set", None)
+            if was_truncated:
+                truncated_entity_relation_ids += 1
             e.update({"user_id": request.user_id, "kb_id": request.kb_id})
 
         # 4. 向量化
@@ -378,12 +423,12 @@ async def process_vectorization_task(task_id: str, request: VectorizationRequest
             update_task_status(
                 task_id,
                 "error",
-                "向量化失败：没有成功生成段落 embedding，未写入 Milvus。",
+                "向量化失败：没有成功生成段落 embedding，未写入向量数据库。",
                 0.95,
             )
             return
 
-        await milvus_client.batch_insert_graph_data({
+        await vector_store.batch_insert_graph_data({
             "Table1_Entities": valid_entities,
             "Table2_Relations": valid_relations,
             "Table3_Passages": valid_passages
@@ -395,6 +440,7 @@ async def process_vectorization_task(task_id: str, request: VectorizationRequest
             "relations": len(valid_relations),
             "failed_embeddings": total_v - (len(valid_passages) + len(valid_entities) + len(valid_relations)),
             "dropped_relations": dropped_relations,
+            "truncated_entity_relation_ids": truncated_entity_relation_ids,
         }
         update_task_status(task_id, "completed", "处理成功", 1.0, summary)
 
