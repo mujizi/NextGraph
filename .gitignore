@@ -20,6 +20,19 @@ backend/storage/
 # Temporary text files
 text_file/
 
+# Logs / process files
+*.log
+*.pid
+
+# Local build and cache artifacts
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+coverage/
+htmlcov/
+*.sqlite
+*.sqlite3
+
 # Python cache
 __pycache__/
 *.py[cod]
